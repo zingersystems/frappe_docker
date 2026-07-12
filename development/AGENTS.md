@@ -72,12 +72,33 @@ Default section order:
 3. Refresh every affected Child DOX Index
 4. Remove stale or contradictory text
 5. Run existing verification when relevant
-6. Report any docs intentionally left unchanged and why
+6. Update the nearest continuity ledger when the change affects progress, decisions, memory, or handoff context
+7. Commit the affected files in every affected Git repository with a suitable message after validation passes
+8. Report any docs intentionally left unchanged and why
+
+## Continuity Records
+
+- Keep stable operating rules in `AGENTS.md`; keep ongoing progress, decisions, lessons, and handoff context in the nearest `CONTINUITY.md`.
+- Update `CONTINUITY.md` after meaningful work that changes implementation state, decisions, known risks, verification status, or next steps.
+- Use concise entries under Progress, Decisions, Memory, and Handoff so a new agent can quickly understand where the work came from and how to continue.
+- Prefer the nearest repository or durable boundary: root workspace notes in `CONTINUITY.md`, custom app notes in that app's `CONTINUITY.md`, and broader bench notes in the closest tracked parent ledger.
+
+## Git Commit Workflow
+
+- After each meaningful change, run the relevant verification or record why it was not run, then commit the affected files with a suitable message.
+- Commit separately in each affected Git repository; this workspace includes nested app repositories under `frappe-bench/apps/`.
+- Stage and commit only files relevant to the completed change. Never include unrelated user edits, runtime artifacts, caches, logs, or generated files such as `__pycache__`.
+- If a repository has unrelated dirty files, leave them untouched and mention them in the handoff or final response when relevant.
 
 ## User Preferences
 
 When the user requests a durable behavior change, record it here or in the relevant child AGENTS.md
 
+- Automatically commit affected files after each meaningful change using a suitable message for each affected Git repository.
+- Maintain continuity records so future agents can track progress, decisions, durable memories, and handoff context across the workspace and nested app repositories.
+
 ## Child DOX Index
 
-This project is not yet indexed. Before continuing you must scan the project, build the DOX tree and replace this message with the actual index. Go deep and scan files recursively to properly evaluate complexity and create nested DOX files where needed.
+- `frappe-bench/AGENTS.md` covers the Frappe bench runtime, installed apps, site configuration, logs, and bench-level operations.
+- `research/AGENTS.md` covers source requirements, onboarding reference material, and decision inputs.
+- `vscode-example/AGENTS.md` covers reusable VS Code task, launch, and settings examples.
