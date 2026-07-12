@@ -6,6 +6,7 @@ sites
 
 development/*
 !development/README.md
+!development/AGENTS.md
 !development/installer.py
 !development/apps-example.json
 !development/vscode-example/
