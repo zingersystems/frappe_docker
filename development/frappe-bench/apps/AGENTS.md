@@ -10,11 +10,11 @@
 - `academia_core/` owns reusable admissions engine behavior and has its own DOX file.
 - `academia_catuc/` owns CATUC-specific admissions configuration and has its own DOX file.
 - `frappe_pay_connect/` owns provider-neutral payment policy and transaction behavior and has its own DOX file.
-- `frappe/`, `erpnext/`, and `education/` are upstream apps; treat them as dependencies unless the user explicitly requests framework or upstream app edits.
+- `frappe/`, `erpnext/`, `education/`, and `payments/` are upstream apps; treat them as dependencies unless the user explicitly requests framework or upstream app edits.
 
 ## Local Contracts
 
-- Implement Academia behavior in `academia_core`, `academia_catuc`, or `frappe_pay_connect` according to ownership, not in upstream `frappe`, `erpnext`, or `education` code.
+- Implement Academia behavior in `academia_core`, `academia_catuc`, or `frappe_pay_connect` according to ownership, not in upstream `frappe`, `erpnext`, `education`, or `payments` code.
 - Keep Frappe app package files, module packages, hooks, DocTypes, patches, public assets, templates, and `www/` routes consistent with Frappe conventions.
 - Frappe module folders listed in `modules.txt` must be importable Python packages with `__init__.py` where required by the framework.
 
