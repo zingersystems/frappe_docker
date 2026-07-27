@@ -2,6 +2,7 @@
 
 ## Progress
 
+- 2026-07-27: Added optional Student Admission Processing Rules beneath Application Payment Policy to require confirmed payment before review and/or an admission decision. Pay Connect owns the default-off controls; Core enforces Paid or Waived before the configured lifecycle boundaries. Migration, visual verification, all 97 Core tests, and all 26 Pay Connect tests passed.
 - 2026-07-27: Replaced legacy aggregate application-fee labels with explicit Not Required, Unpaid, Pending Payment, Proof Submitted, Pending Verification, Paid, Proof Rejected, Failed, Refunded, and Waived states. Migrated live applicants from payment evidence, made Education's `paid` checkbox derived/read-only, and updated online/proof projections plus Desk and portal behavior. All 96 Core, 25 Pay Connect, and 22 CATUC tests passed with all three app builds.
 - 2026-07-26: Replaced the custom admissions collection-mode configuration with a requirement plus independent online, proof-upload, and pay-later options. Added private proof review and settlement accounting, updated the applicant Payment step and status behavior, migrated existing policy values, and refreshed the admissions requirements guide. All 23 Pay Connect, 94 Core, and 22 CATUC tests passed with all three app builds.
 - 2026-07-12: Installed DOX `AGENTS.md` and initialized the workspace DOX hierarchy for the Frappe bench, app collection, custom apps, research, and VS Code examples.
