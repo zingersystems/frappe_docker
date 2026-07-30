@@ -17,12 +17,14 @@
 - Implement Academia behavior in `academia_core`, `academia_catuc`, or `frappe_pay_connect` according to ownership, not in upstream `frappe`, `erpnext`, `education`, or `payments` code.
 - Keep Frappe app package files, module packages, hooks, DocTypes, patches, public assets, templates, and `www/` routes consistent with Frappe conventions.
 - Frappe module folders listed in `modules.txt` must be importable Python packages with `__init__.py` where required by the framework.
+- Every durable schema, configuration, seed, and data change must reach production through standard DocType sync, `after_install`/`after_migrate`, an ordered patch, a fixture, or another idempotent app-owned provisioner. A manual Desk or database operation may be used for diagnosis but must be codified before closeout.
 
 ## Work Guidance
 
 - For Python code, follow each app's `pyproject.toml` conventions: Python 3.14 target, tabs for formatter indentation, double quotes, and 110 character line length.
 - For public pages and assets, prefer app-owned templates, `www/` routes, `public/css`, and `public/js`.
 - Avoid broad formatting or dependency changes across upstream apps.
+- Verify new provisioning on both upgrade and fresh-install paths when their behavior differs, and preserve administrator-owned values unless the migration explicitly replaces a recognized generated value.
 
 ## Verification
 

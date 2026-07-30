@@ -48,6 +48,7 @@ Update parent docs when parent-level structure, ownership, workflow, or child in
 - Verification must reflect an existing check; if no verification framework exists yet, leave it empty and update it when one exists
 
 Default section order:
+
 - Purpose
 - Ownership
 - Local Contracts
@@ -96,6 +97,7 @@ When the user requests a durable behavior change, record it here or in the relev
 
 - Automatically commit affected files after each meaningful change using a suitable message for each affected Git repository.
 - Maintain continuity records so future agents can track progress, decisions, durable memories, and handoff context across the workspace and nested app repositories.
+- Make every durable project change reproducible on production through app installation or migration. Use standard DocTypes, hooks, patches, fixtures, or idempotent provisioning; never leave manual Desk or database work as a required deployment step.
 
 ## Child DOX Index
 
