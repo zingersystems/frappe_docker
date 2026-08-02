@@ -7,6 +7,23 @@ x-frappe-service: &frappe-service
     SHELL: /bin/bash
     SITE_NAME: ${SITE_NAME:-academia-frappe-catuc}
     TZ: Etc/UTC
+    GIT_CONFIG_COUNT: "8"
+    GIT_CONFIG_KEY_0: safe.directory
+    GIT_CONFIG_VALUE_0: /workspace
+    GIT_CONFIG_KEY_1: safe.directory
+    GIT_CONFIG_VALUE_1: /workspace/development/frappe-bench/apps/frappe
+    GIT_CONFIG_KEY_2: safe.directory
+    GIT_CONFIG_VALUE_2: /workspace/development/frappe-bench/apps/erpnext
+    GIT_CONFIG_KEY_3: safe.directory
+    GIT_CONFIG_VALUE_3: /workspace/development/frappe-bench/apps/education
+    GIT_CONFIG_KEY_4: safe.directory
+    GIT_CONFIG_VALUE_4: /workspace/development/frappe-bench/apps/payments
+    GIT_CONFIG_KEY_5: safe.directory
+    GIT_CONFIG_VALUE_5: /workspace/development/frappe-bench/apps/academia_core
+    GIT_CONFIG_KEY_6: safe.directory
+    GIT_CONFIG_VALUE_6: /workspace/development/frappe-bench/apps/academia_catuc
+    GIT_CONFIG_KEY_7: safe.directory
+    GIT_CONFIG_VALUE_7: /workspace/development/frappe-bench/apps/frappe_pay_connect
   group_add:
     - ${DEVELOPERS_GID:-1004}
   volumes:

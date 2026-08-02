@@ -13,7 +13,7 @@ Future projects use their own Compose project, private data network, volumes, se
 ## First deployment
 
 1. Create the `sandbox-edge` Docker network and the edge `dynamic`, `secrets`, and `logs` directories.
-2. Generate the CATUC htpasswd file and MariaDB root-password file with mode `0600`; never commit either file.
+2. Generate the CATUC htpasswd and issued plaintext credentials with mode `0600`. Store the MariaDB root-password file as `colong:developers` with mode `0640` so the non-root devcontainer can use it through its supplemental developer group. Never commit any of these files.
 3. Start `sandbox-edge`, then start the CATUC Compose project.
 4. Run `catuc/scripts/bootstrap-bench` inside the `frappe` service.
 5. Transfer a checksummed Frappe backup and restore it with `catuc/scripts/restore-site`.

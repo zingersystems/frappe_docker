@@ -5,6 +5,7 @@ bench_root=${BENCH_ROOT:-/workspace/development/frappe-bench}
 site_name=${SITE_NAME:-academia-frappe-catuc}
 
 cd "$bench_root"
+mkdir -p config/pids logs sites
 
 if [ ! -x env/bin/python ]; then
 	bench setup env
