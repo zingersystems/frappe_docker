@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 0002
 
 bench_root=${BENCH_ROOT:-/workspace/development/frappe-bench}
 hold_file=${BENCH_HOLD_FILE:-/workspace/development/.bench-start.hold}

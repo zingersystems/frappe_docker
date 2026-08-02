@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 0002
 
 workspace=${PROJECT_ROOT:-/workspace}
 state_dir="$workspace/development/.runtime-session"
@@ -68,6 +69,7 @@ case "$command" in
 		git config --file "$state_dir/session.ini" session.branch "$5"
 		for repository in "${repositories[@]}"; do
 			assert_clean "$repository"
+			git -C "$repository" config core.sharedRepository group
 			git -C "$repository" fetch origin
 			assert_pushed "$repository"
 			git -C "$repository" config user.name "$3"

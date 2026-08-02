@@ -26,11 +26,15 @@ sudo fail2ban-client status traefik-catuc-auth
 sudo fail2ban-client set traefik-catuc-auth unbanip ADDRESS
 ```
 
+The reviewed one-time `sandbox-edge/install-host-integration` installer installs those templates, enables agent forwarding only for the `developers` group, validates SSH configuration, restarts Docker, reloads Fail2ban, and prints the jail status.
+
 An IP ban affects every user behind the same public NAT address. Confirm the source address in the jail status before banning or unbanning, and use the manual unban immediately if a school or office gateway is caught by repeated bad credentials.
 
 ## Developer workflow
 
 Each developer connects to the VPS with VS Code Remote SSH and reopens the repository in the existing devcontainer. Do not mount personal `.ssh` directories into the shared container. Developers register their own GitLab keys and use agent forwarding for remote Git operations.
+
+Use `umask 0002` in the developer shell. The repositories are configured with Git shared-repository mode so new Git metadata remains writable by the `developers` group.
 
 Acquire the shared runtime before changing branches:
 

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+	echo "Run this reviewed host-integration installer with sudo" >&2
+	exit 1
+fi
+
+edge_root=${EDGE_ROOT:-/srv/deploy/edge}
+
+install -m 0644 "$edge_root/fail2ban/filter.d/traefik-catuc-auth.conf" /etc/fail2ban/filter.d/traefik-catuc-auth.conf
+install -m 0644 "$edge_root/fail2ban/jail.d/traefik-catuc-auth.local" /etc/fail2ban/jail.d/traefik-catuc-auth.local
+install -m 0644 "$edge_root/sshd/00-academia-developers.conf" /etc/ssh/sshd_config.d/00-academia-developers.conf
+
+sshd -t
+effective_forwarding=$(sshd -T -C user=colong,host=contabo.zs.sandbox,addr=127.0.0.1 | awk '$1 == "allowagentforwarding" {print $2}')
+if [ "$effective_forwarding" != "yes" ]; then
+	echo "Developer SSH agent forwarding did not validate" >&2
+	exit 1
+fi
+
+systemctl reload ssh
+systemctl restart docker
+fail2ban-client reload
+fail2ban-client status traefik-catuc-auth

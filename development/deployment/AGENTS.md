@@ -7,7 +7,7 @@
 ## Ownership
 
 - `catuc/` owns the single `academia-frappe-catuc` development stack and its operational commands.
-- `sandbox-edge/` owns the shared VPS Traefik template, client authentication middleware, and Fail2ban configuration.
+- `sandbox-edge/` owns the shared VPS Traefik template, client authentication middleware, Fail2ban configuration, and reviewed host-integration installer.
 
 ## Local Contracts
 
@@ -30,4 +30,3 @@
 - `bash -n development/deployment/catuc/scripts/*`
 
 ## Child DOX Index
-

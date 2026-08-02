@@ -2,7 +2,8 @@
 
 ## Progress
 
-- 2026-08-02: Began the CATUC VPS migration to `/srv/projects/academia/catuc/frappe/frappe_docker` with the single `academia-frappe-catuc` devcontainer stack and shared `/srv/deploy/edge` ingress. Created private GitLab projects for all three custom apps, standardized their `main`/`develop`/`staging` branches, and removed tracked bytecode before transfer.
+- 2026-08-02: Provisioned `/srv/projects/academia/catuc/frappe/frappe_docker` as the single `academia-frappe-catuc` Compose stack and `/srv/deploy/edge` as the shared `sandbox-edge` Traefik project. Restored the checksummed `development.localhost` database and files into site `academia-frappe-catuc`; matched 839 tables, 14 users, 164 File records, and 47 physical files/1,812,146 bytes. Internal HTTP, public Let's Encrypt HTTPS, project Basic Auth, Socket.IO, Mailpit, MTN sandbox configuration, worker/scheduler operation, network isolation, scheduled/branch backups, and a process-safe `develop -> staging -> develop` data/source switch were verified. Remote runs passed Python compilation plus 196 Core, 70 CATUC, and 65 Pay Connect tests.
+- 2026-08-02: Staged `/srv/deploy/edge/install-host-integration` for the two remaining root-owned host changes: install/reload the verified CATUC Fail2ban jail and enable SSH agent forwarding for the `developers` group. The installer also performs the required Docker restart; it still requires one reviewed `sudo` execution and post-restart verification.
 
 - 2026-07-30: Established production reproducibility as a workspace contract: every durable schema, configuration, seed, and data change must be delivered through app install/migrate mechanisms rather than manual Desk or database replication. Current custom apps already expose install/migrate hooks; the Educational Level presentation refactor is covered by standard DocType sync, a guarded Core patch, and idempotent CATUC provisioning.
 - 2026-07-27: Added optional Student Admission Processing Rules beneath Application Payment Policy to require confirmed payment before review and/or an admission decision. Pay Connect owns the default-off controls; Core enforces Paid or Waived before the configured lifecycle boundaries. Migration, visual verification, all 97 Core tests, and all 26 Pay Connect tests passed.
@@ -17,6 +18,9 @@
 
 ## Decisions
 
+- CATUC uses one shared checkout and one active database in Compose project `academia-frappe-catuc`; branch-aligned data snapshots and manifests provide environment switching rather than parallel application stacks.
+- VPS-wide HTTP/HTTPS ingress belongs to the separate shared-infrastructure project `sandbox-edge`; only application web containers join its external Docker network.
+- Developer SSH keys remain off the VPS. Git remote access requires each developer's forwarded agent, repository-local identity, and the serialized runtime session.
 - Use `AGENTS.md` for stable contracts and `CONTINUITY.md` for progress, decisions, memories, and handoff notes.
 - Commit changes separately in each affected Git repository, including nested custom app repositories under `frappe-bench/apps/`.
 - Do not commit unrelated dirty files or runtime artifacts when making scoped workflow or implementation changes.
@@ -29,6 +33,8 @@
 
 ## Handoff
 
+- The active VPS runtime is `develop`, all four shared repositories are on `develop`, and their SSH origin URLs are restored. The client gate password is retrievable by the project owner from `/srv/projects/academia/catuc/secrets/catuc-bda.initial-password`; do not copy it into Git or continuity docs.
+- Complete host integration with `sudo /srv/deploy/edge/install-host-integration`, then verify the Fail2ban jail, forwarded GitLab SSH access, both Compose projects after Docker restart, and authenticated public HTTP. `/etc/ssh/sshd_config.d/ssh_hardening.conf` currently disables agent forwarding until this step is run.
 - Root and bench-level DOX files are tracked by the parent repository after `.gitignore` exceptions.
 - App-level DOX and continuity files should be committed from inside their nested app repositories.
 - Payments install printed a non-fatal desktop icon warning (`NoneType` object has no attribute `startswith`) during `install-app`; subsequent migrate succeeded and the app is listed for `development.localhost`.

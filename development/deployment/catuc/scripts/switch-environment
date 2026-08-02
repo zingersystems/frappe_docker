@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 0002
 
 if [ "$#" -ne 1 ]; then
 	echo "Usage: switch-environment {develop|staging|main}" >&2
@@ -102,6 +103,7 @@ fi
 "$script_dir/restore-site" "$snapshot"
 printf '%s\n' "$target" > "$state_file"
 bench build --apps academia_core,academia_catuc,frappe_pay_connect
+git -C "$bench_root/apps/education" restore education/public/node_modules education/public/frontend/index.html
 bench --site "$site_name" clear-cache
 release_bench
 

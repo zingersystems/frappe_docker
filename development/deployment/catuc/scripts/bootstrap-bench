@@ -3,9 +3,24 @@ set -euo pipefail
 
 bench_root=${BENCH_ROOT:-/workspace/development/frappe-bench}
 site_name=${SITE_NAME:-academia-frappe-catuc}
+workspace=${PROJECT_ROOT:-/workspace}
 
 cd "$bench_root"
 mkdir -p config/pids logs sites
+
+repositories=(
+	"$workspace"
+	"$bench_root/apps/frappe"
+	"$bench_root/apps/erpnext"
+	"$bench_root/apps/education"
+	"$bench_root/apps/payments"
+	"$bench_root/apps/academia_core"
+	"$bench_root/apps/academia_catuc"
+	"$bench_root/apps/frappe_pay_connect"
+)
+for repository in "${repositories[@]}"; do
+	git -C "$repository" config core.sharedRepository group
+done
 
 if [ ! -x env/bin/python ]; then
 	bench setup env
