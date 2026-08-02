@@ -101,9 +101,25 @@ fi
 
 "$script_dir/restore-site" "$snapshot"
 printf '%s\n' "$target" > "$state_file"
-bench build --app academia_core --app academia_catuc --app frappe_pay_connect
+bench build --apps academia_core,academia_catuc,frappe_pay_connect
 bench --site "$site_name" clear-cache
 release_bench
+
+responding=false
+for _ in $(seq 1 60); do
+	response_code=$(curl --silent --output /dev/null --write-out '%{http_code}' -H "Host: academia-frappe-catuc.localhost" http://127.0.0.1:8000/ || true)
+	case "$response_code" in
+		200|503) responding=true; break ;;
+	esac
+	sleep 1
+done
+if [ "$responding" != true ]; then
+	echo "Bench did not respond after restart" >&2
+	exit 1
+fi
+
+bench --site "$site_name" set-maintenance-mode off
+maintenance_enabled=false
 
 healthy=false
 for _ in $(seq 1 60); do
@@ -117,6 +133,3 @@ if [ "$healthy" != true ]; then
 	echo "Bench failed its internal HTTP health check" >&2
 	exit 1
 fi
-
-bench --site "$site_name" set-maintenance-mode off
-maintenance_enabled=false
