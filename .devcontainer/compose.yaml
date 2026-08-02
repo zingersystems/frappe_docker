@@ -1,0 +1,47 @@
+name: frappe_docker_devcontainer
+
+services:
+  mariadb:
+    image: mariadb:11.8
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+    environment:
+      MARIADB_AUTO_UPGRADE: "1"
+      MYSQL_ROOT_PASSWORD: "123"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+  redis-cache:
+    image: redis:alpine
+
+  redis-queue:
+    image: redis:alpine
+
+  mailpit:
+    image: axllent/mailpit:latest
+    environment:
+      MP_DATA_FILE: /data/mailpit.db
+      MP_MAX_MESSAGES: "5000"
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    volumes:
+      - mailpit-data:/data
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  frappe:
+    image: frappe/bench:latest
+    command: sleep infinity
+    working_dir: /workspace/development
+    volumes:
+      - ../:/workspace:cached
+    ports:
+      - "8000-8005:8000-8005"
+      - "9000-9005:9000-9005"
+
+volumes:
+  mariadb-data:
+  mailpit-data:

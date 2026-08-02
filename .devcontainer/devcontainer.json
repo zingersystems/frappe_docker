@@ -42,9 +42,9 @@
       }
     }
   },
-  "dockerComposeFile": "../development/deployment/catuc/compose.yaml",
+  "dockerComposeFile": "compose.yaml",
   "service": "frappe",
   "workspaceFolder": "/workspace/development",
-  "shutdownAction": "none",
+  "shutdownAction": "stopCompose",
   "postCreateCommand": "uv tool install pre-commit"
 }

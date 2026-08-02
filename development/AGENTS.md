@@ -99,6 +99,7 @@ When the user requests a durable behavior change, record it here or in the relev
 - Maintain continuity records so future agents can track progress, decisions, durable memories, and handoff context across the workspace and nested app repositories.
 - Make every durable project change reproducible on production through app installation or migration. Use standard DocTypes, hooks, patches, fixtures, or idempotent provisioning; never leave manual Desk or database work as a required deployment step.
 - Host CATUC development in the `academia-frappe-catuc` Compose project, with one shared checkout and serialized developer branch sessions.
+- Keep the local VS Code Dev Container on its self-contained `.devcontainer/compose.yaml` stack and `development.localhost` site; VPS-only secrets, paths, and ingress stay in `development/deployment/catuc/compose.yaml`.
 - Use `sandbox-edge` at `/srv/deploy/edge` as the VPS-wide ingress for schools and other development projects.
 - Use `main`, `develop`, and `staging` as the stable, integration, and customer-test branches for custom apps.
 
