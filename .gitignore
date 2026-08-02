@@ -20,6 +20,8 @@ development/frappe-bench/apps/*
 development/research/*
 !development/research/AGENTS.md
 !development/vscode-example/
+!development/deployment/
+!development/deployment/**
 
 # Pycharm
 .idea
@@ -29,7 +31,6 @@ development/research/*
 !.vscode/extensions.json
 
 # VS Code devcontainer
-.devcontainer
 *.code-workspace
 
 # Python

@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+workspace=${PROJECT_ROOT:-/workspace}
+state_dir="$workspace/development/.runtime-session"
+lock_dir="$workspace/development/.runtime-lock"
+repositories=(
+	"$workspace"
+	"$workspace/development/frappe-bench/apps/academia_core"
+	"$workspace/development/frappe-bench/apps/academia_catuc"
+	"$workspace/development/frappe-bench/apps/frappe_pay_connect"
+)
+
+assert_clean() {
+	local repository=$1
+	if [ -n "$(git -C "$repository" status --porcelain)" ]; then
+		echo "Refusing operation: changes remain in $repository" >&2
+		return 1
+	fi
+}
+
+assert_pushed() {
+	local repository=$1 branch upstream counts ahead behind
+	branch=$(git -C "$repository" branch --show-current)
+	if [ -z "$branch" ]; then
+		echo "Refusing operation: detached HEAD in $repository" >&2
+		return 1
+	fi
+	upstream=$(git -C "$repository" rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || true)
+	if [ -z "$upstream" ]; then
+		if git -C "$repository" show-ref --verify --quiet refs/heads/develop \
+			&& [ "$(git -C "$repository" rev-list --count develop..HEAD)" = "0" ]; then
+			return 0
+		fi
+		echo "Refusing operation: $branch has no upstream in $repository" >&2
+		return 1
+	fi
+	counts=$(git -C "$repository" rev-list --left-right --count "$upstream...HEAD")
+	behind=${counts%%[[:space:]]*}
+	ahead=${counts##*[[:space:]]}
+	if [ "$ahead" != "0" ] || [ "$behind" != "0" ]; then
+		echo "Refusing operation: $branch is not synchronized with $upstream in $repository" >&2
+		return 1
+	fi
+}
+
+command=${1:-status}
+case "$command" in
+	start)
+		if [ "$#" -ne 5 ]; then
+			echo "Usage: runtime-session start DEVELOPER 'FULL NAME' EMAIL WORK_BRANCH" >&2
+			exit 2
+		fi
+		case "$5" in
+			feature/"$2"/*|fix/"$2"/*) ;;
+			*) echo "Work branch must be feature/$2/TOPIC or fix/$2/TOPIC" >&2; exit 2 ;;
+		esac
+		mkdir "$lock_dir" 2>/dev/null || { echo "Runtime already owned by another developer or operation" >&2; exit 1; }
+		cleanup_failed_start() {
+			rm -f -- "$state_dir/session.ini"
+			rmdir "$state_dir" 2>/dev/null || true
+			rmdir "$lock_dir" 2>/dev/null || true
+		}
+		trap cleanup_failed_start ERR INT TERM
+		mkdir "$state_dir"
+		git config --file "$state_dir/session.ini" session.developer "$2"
+		git config --file "$state_dir/session.ini" session.started "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+		git config --file "$state_dir/session.ini" session.branch "$5"
+		for repository in "${repositories[@]}"; do
+			assert_clean "$repository"
+			git -C "$repository" fetch origin
+			assert_pushed "$repository"
+			git -C "$repository" config user.name "$3"
+			git -C "$repository" config user.email "$4"
+			git -C "$repository" switch develop
+			git -C "$repository" merge --ff-only origin/develop
+			if git -C "$repository" show-ref --verify --quiet "refs/heads/$5"; then
+				git -C "$repository" switch "$5"
+				assert_pushed "$repository"
+			elif git -C "$repository" show-ref --verify --quiet "refs/remotes/origin/$5"; then
+				git -C "$repository" switch --track "origin/$5"
+			else
+				git -C "$repository" switch -c "$5"
+			fi
+		done
+		trap - ERR INT TERM
+		;;
+	status)
+		if [ -f "$state_dir/session.ini" ]; then
+			git config --file "$state_dir/session.ini" --list
+		else
+			echo "Runtime is available"
+		fi
+		;;
+	release)
+		for repository in "${repositories[@]}"; do
+			assert_clean "$repository"
+			git -C "$repository" fetch origin
+			assert_pushed "$repository"
+			git -C "$repository" switch develop
+			git -C "$repository" merge --ff-only origin/develop
+		done
+		rm -f "$state_dir/session.ini"
+		rmdir "$state_dir"
+		rmdir "$lock_dir"
+		;;
+	*)
+		echo "Usage: runtime-session {start|status|release}" >&2
+		exit 2
+		;;
+esac

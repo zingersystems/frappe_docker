@@ -1,0 +1,9 @@
+[traefik-catuc-auth]
+enabled = true
+filter = traefik-catuc-auth
+logpath = /srv/deploy/edge/logs/access.json
+backend = auto
+maxretry = 3
+findtime = 10m
+bantime = 1h
+action = ufw

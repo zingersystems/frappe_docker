@@ -2,7 +2,7 @@
 
 ## Purpose
 
-- Owns the local Frappe bench used for Academia admissions development on `development.localhost`.
+- Owns the Frappe bench used locally and in the CATUC VPS devcontainer.
 - Contains app source trees, site state, bench configuration, process files, logs, and the Python virtual environment.
 
 ## Ownership
@@ -15,7 +15,8 @@
 ## Local Contracts
 
 - Run bench commands from `frappe-bench/` unless a command explicitly requires an app directory.
-- Use the site `development.localhost` for migrations and smoke checks unless the user names another site.
+- Use `development.localhost` locally and `academia-frappe-catuc` on the CATUC VPS; commands must name the active site explicitly.
+- The VPS serves `academia-frappe-catuc` by default, uses `academia-frappe-catuc.localhost` internally, and publishes it through `portal.catuc.zingersystems.com`.
 - Do not edit upstream framework app code to implement Academia behavior; prefer custom apps, hooks, DocTypes, custom fields, patches, fixtures, and services.
 - Preserve user or runtime data in `sites/`; avoid destructive site operations without explicit approval.
 

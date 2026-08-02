@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -ne 1 ]; then
+	echo "Usage: restore-site SNAPSHOT_DIRECTORY" >&2
+	exit 2
+fi
+
+snapshot=$1
+bench_root=${BENCH_ROOT:-/workspace/development/frappe-bench}
+site_name=${SITE_NAME:-academia-frappe-catuc}
+root_password_file=${DB_ROOT_PASSWORD_FILE:-/run/secrets/mariadb_root_password}
+
+case "$site_name" in
+	""|*[!A-Za-z0-9._-]*) echo "Invalid site name: $site_name" >&2; exit 2 ;;
+esac
+
+case "$snapshot" in
+	/srv/backups/*) ;;
+	*) echo "Refusing restore outside /srv/backups" >&2; exit 1 ;;
+esac
+
+for required in database.sql.gz public-files.tgz private-files.tgz site-config.json SHA256SUMS; do
+	test -f "$snapshot/$required" || { echo "Missing $snapshot/$required" >&2; exit 1; }
+done
+
+cd "$snapshot"
+sha256sum --check SHA256SUMS
+cd "$bench_root"
+
+db_root_password=$(tr -d '\r\n' < "$root_password_file")
+if [ ! -d "sites/$site_name" ]; then
+	admin_password=$(openssl rand -base64 30)
+	bench new-site "$site_name" \
+		--db-host mariadb \
+		--db-type mariadb \
+		--db-root-username root \
+		--db-root-password "$db_root_password" \
+		--mariadb-user-host-login-scope=% \
+		--admin-password "$admin_password"
+fi
+
+encryption_key=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["encryption_key"])' "$snapshot/site-config.json")
+bench --site "$site_name" set-config encryption_key "$encryption_key"
+
+site_directory="$bench_root/sites/$site_name"
+mkdir -p "$site_directory/public/files" "$site_directory/private/files"
+find "$site_directory/public/files" -mindepth 1 -delete
+find "$site_directory/private/files" -mindepth 1 -delete
+
+bench --site "$site_name" restore "$snapshot/database.sql.gz" \
+	--with-public-files "$snapshot/public-files.tgz" \
+	--with-private-files "$snapshot/private-files.tgz" \
+	--db-root-username root \
+	--db-root-password "$db_root_password"
+bench use "$site_name"
+bench --site "$site_name" set-config host_name https://portal.catuc.zingersystems.com
+bench --site "$site_name" set-config developer_mode 1
+bench --site "$site_name" set-config allow_tests true
+bench --site "$site_name" migrate
+bench --site "$site_name" clear-cache

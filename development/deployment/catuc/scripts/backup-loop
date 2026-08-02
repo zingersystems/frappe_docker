@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+backup_root=${BACKUP_ROOT:-/srv/backups}
+
+while true; do
+	date_path=$(date -u +%Y-%m-%d)
+	week_path=$(date -u +%G-W%V)
+	backup_path=$($script_dir/backup-site "scheduled/daily/$date_path" | tail -n 1)
+
+	if [ "$(date -u +%u)" = "7" ]; then
+		mkdir -p "$backup_root/scheduled/weekly"
+		relative_backup=${backup_path#"$backup_root/"}
+		ln -sfn "../../$relative_backup" "$backup_root/scheduled/weekly/$week_path"
+	fi
+
+	find "$backup_root/scheduled/daily" -mindepth 1 -maxdepth 1 -type d -mtime +13 -exec rm -rf -- {} +
+	find "$backup_root/scheduled/weekly" -mindepth 1 -maxdepth 1 -type l -mtime +27 -delete 2>/dev/null || true
+	sleep 86400
+done

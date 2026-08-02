@@ -1,0 +1,12 @@
+{
+  "environment": "main",
+  "apps": {
+    "academia_core": "053a1573a7475dfe5995fcc434a7369497b47828",
+    "academia_catuc": "a4a40f5521080056a284c27c82b49b79840a01fa",
+    "frappe_pay_connect": "ea76354859beb02a55e815a8c839950fbf1bc804",
+    "education": "71aada478bf682f6d034fd4caa6f2f5438b5ace9",
+    "erpnext": "4fddd013bfbe4b60aadf3cd8924e72af25b07e80",
+    "frappe": "4113465d23888d70936bb332fd9110ab4330cbf1",
+    "payments": "cca07d9f9392e2ea0e521c5975151db9e4b6c321"
+  }
+}

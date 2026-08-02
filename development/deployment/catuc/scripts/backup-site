@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+bench_root=${BENCH_ROOT:-/workspace/development/frappe-bench}
+site_name=${SITE_NAME:-academia-frappe-catuc}
+backup_root=${BACKUP_ROOT:-/srv/backups}
+category=${1:-manual}
+timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+destination="$backup_root/$category/$timestamp"
+
+case "$destination" in
+	/srv/backups/*) ;;
+	*) echo "Refusing backup outside /srv/backups" >&2; exit 1 ;;
+esac
+
+mkdir -p "$destination"
+cd "$bench_root"
+bench --site "$site_name" backup \
+	--with-files \
+	--compress \
+	--backup-path-db "$destination/database.sql.gz" \
+	--backup-path-files "$destination/public-files.tgz" \
+	--backup-path-private-files "$destination/private-files.tgz" \
+	--backup-path-conf "$destination/site-config.json"
+
+(cd "$destination" && sha256sum database.sql.gz public-files.tgz private-files.tgz site-config.json > SHA256SUMS)
+printf '%s\n' "$destination"

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+bench_root=${BENCH_ROOT:-/workspace/development/frappe-bench}
+site_name=${SITE_NAME:-academia-frappe-catuc}
+
+cd "$bench_root"
+
+if [ ! -x env/bin/python ]; then
+	bench setup env
+fi
+
+bench setup requirements
+bench set-config -g db_type mariadb
+bench set-config -g db_host mariadb
+bench set-config -g redis_cache redis://redis-cache:6379
+bench set-config -g redis_queue redis://redis-queue:6379
+bench set-config -g redis_socketio redis://redis-queue:6379
+bench set-config -gp socketio_port 9000
+bench set-config -gp webserver_port 8000
+bench set-config -gp developer_mode 1
+bench set-config -g serve_default_site true
+
+if [ -d "sites/$site_name" ]; then
+	bench use "$site_name"
+fi

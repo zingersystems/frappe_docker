@@ -1,0 +1,145 @@
+name: academia-frappe-catuc
+
+x-frappe-service: &frappe-service
+  image: frappe/bench@sha256:dad27437a9c50318dde528d70eae21300b1ccbebc09f7e2a4cb161fc71f51d04
+  working_dir: /workspace/development/frappe-bench
+  environment:
+    SHELL: /bin/bash
+    SITE_NAME: ${SITE_NAME:-academia-frappe-catuc}
+    TZ: Etc/UTC
+  group_add:
+    - ${DEVELOPERS_GID:-1004}
+  volumes:
+    - ../../../:/workspace:cached
+    - ${CATUC_BACKUP_DIR:-/srv/projects/academia/catuc/backups}:/srv/backups
+  secrets:
+    - mariadb_root_password
+  networks:
+    - default
+
+services:
+  mariadb:
+    image: mariadb:11.8
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+    environment:
+      MARIADB_AUTO_UPGRADE: "1"
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mariadb_root_password
+    secrets:
+      - mariadb_root_password
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redis-cache:
+    image: redis:alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  redis-queue:
+    image: redis:alpine
+    restart: unless-stopped
+    volumes:
+      - redis-queue-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    environment:
+      MP_DATA_FILE: /data/mailpit.db
+      MP_MAX_MESSAGES: "5000"
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    volumes:
+      - mailpit-data:/data
+    ports:
+      - 127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025
+      - 127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025
+
+  frappe:
+    <<: *frappe-service
+    init: true
+    restart: unless-stopped
+    command:
+      - bash
+      - -lc
+      - >-
+        if [ -x env/bin/python ]; then
+          exec bench start;
+        fi;
+        echo 'Bench environment is not initialized; run scripts/bootstrap-bench.';
+        exec sleep infinity
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+      redis-queue:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:${DEV_HTTP_PORT:-8000}:8000
+      - 127.0.0.1:${DEV_SOCKETIO_PORT:-9000}:9000
+    extra_hosts:
+      - academia-frappe-catuc.localhost:127.0.0.1
+    networks:
+      - default
+      - sandbox-edge
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: sandbox-edge
+      traefik.http.routers.catuc-web.rule: Host(`${PUBLIC_HOSTNAME:-portal.catuc.zingersystems.com}`)
+      traefik.http.routers.catuc-web.entrypoints: websecure
+      traefik.http.routers.catuc-web.tls.certresolver: letsencrypt
+      traefik.http.routers.catuc-web.middlewares: catuc-auth@file
+      traefik.http.routers.catuc-web.service: catuc-web
+      traefik.http.services.catuc-web.loadbalancer.server.port: "8000"
+      traefik.http.routers.catuc-socket.rule: Host(`${PUBLIC_HOSTNAME:-portal.catuc.zingersystems.com}`) && PathPrefix(`/socket.io`)
+      traefik.http.routers.catuc-socket.priority: "100"
+      traefik.http.routers.catuc-socket.entrypoints: websecure
+      traefik.http.routers.catuc-socket.tls.certresolver: letsencrypt
+      traefik.http.routers.catuc-socket.middlewares: catuc-auth@file
+      traefik.http.routers.catuc-socket.service: catuc-socket
+      traefik.http.services.catuc-socket.loadbalancer.server.port: "9000"
+
+  backup-scheduler:
+    <<: *frappe-service
+    restart: unless-stopped
+    command: ["bash", "/workspace/development/deployment/catuc/scripts/backup-loop"]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+      redis-queue:
+        condition: service_healthy
+
+secrets:
+  mariadb_root_password:
+    file: ${CATUC_SECRETS_DIR:-/srv/projects/academia/catuc/secrets}/mariadb_root_password
+
+networks:
+  sandbox-edge:
+    external: true
+    name: sandbox-edge
+
+volumes:
+  mariadb-data:
+  redis-queue-data:
+  mailpit-data:

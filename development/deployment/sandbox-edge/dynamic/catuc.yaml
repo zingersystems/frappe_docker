@@ -1,0 +1,6 @@
+http:
+  middlewares:
+    catuc-auth:
+      basicAuth:
+        usersFile: /run/secrets/catuc.htpasswd
+        removeHeader: true
