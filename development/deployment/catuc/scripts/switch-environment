@@ -18,12 +18,22 @@ site_name=${SITE_NAME:-academia-frappe-catuc}
 backup_root=${BACKUP_ROOT:-/srv/backups}
 state_file="$workspace/development/.runtime-environment"
 lock_dir="$workspace/development/.runtime-lock"
+bench_hold_file="$workspace/development/.bench-start.hold"
+bench_pid_file="$workspace/development/.bench-start.pid"
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 manifest="$workspace/development/deployment/catuc/manifests/$target.json"
 
 mkdir "$lock_dir" 2>/dev/null || { echo "Runtime is owned by another developer or operation" >&2; exit 1; }
 maintenance_enabled=false
+bench_held=false
+release_bench() {
+	rm -f "$bench_hold_file"
+	bench_held=false
+}
 cleanup() {
+	if [ "$bench_held" = true ]; then
+		release_bench
+	fi
 	if [ "$maintenance_enabled" = true ]; then
 		bench --site "$site_name" set-maintenance-mode off >/dev/null 2>&1 || true
 	fi
@@ -39,6 +49,24 @@ fi
 bench --site "$site_name" set-maintenance-mode on
 maintenance_enabled=true
 "$script_dir/backup-site" "branches/$current"
+
+touch "$bench_hold_file"
+bench_held=true
+if [ -s "$bench_pid_file" ]; then
+	bench_pid=$(tr -d '\r\n' < "$bench_pid_file")
+	case "$bench_pid" in
+		*[!0-9]*|"") echo "Invalid Bench PID: $bench_pid" >&2; exit 1 ;;
+	esac
+	kill -TERM "$bench_pid"
+	for _ in $(seq 1 30); do
+		kill -0 "$bench_pid" 2>/dev/null || break
+		sleep 1
+	done
+	if kill -0 "$bench_pid" 2>/dev/null; then
+		echo "Bench did not stop within 30 seconds" >&2
+		exit 1
+	fi
+fi
 
 repositories=(
 	"$workspace"
@@ -75,5 +103,20 @@ fi
 printf '%s\n' "$target" > "$state_file"
 bench build --app academia_core --app academia_catuc --app frappe_pay_connect
 bench --site "$site_name" clear-cache
+release_bench
+
+healthy=false
+for _ in $(seq 1 60); do
+	if curl --fail --silent --output /dev/null -H "Host: academia-frappe-catuc.localhost" http://127.0.0.1:8000/; then
+		healthy=true
+		break
+	fi
+	sleep 1
+done
+if [ "$healthy" != true ]; then
+	echo "Bench failed its internal HTTP health check" >&2
+	exit 1
+fi
+
 bench --site "$site_name" set-maintenance-mode off
 maintenance_enabled=false

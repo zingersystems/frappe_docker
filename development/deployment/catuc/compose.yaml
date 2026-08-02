@@ -96,13 +96,7 @@ services:
     restart: unless-stopped
     command:
       - bash
-      - -lc
-      - >-
-        if [ -x env/bin/python ]; then
-          exec bench start;
-        fi;
-        echo 'Bench environment is not initialized; run scripts/bootstrap-bench.';
-        exec sleep infinity
+      - /workspace/development/deployment/catuc/scripts/run-bench
     depends_on:
       mariadb:
         condition: service_healthy

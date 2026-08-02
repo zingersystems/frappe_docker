@@ -19,7 +19,7 @@ Future projects use their own Compose project, private data network, volumes, se
 5. Transfer a checksummed Frappe backup and restore it with `catuc/scripts/restore-site`.
 6. Restart `frappe`, verify internal access, then verify the public authenticated route.
 
-The Fail2ban templates under `sandbox-edge/fail2ban` must be installed into the matching `/etc/fail2ban` directories and Fail2ban reloaded with sudo. The jail watches only CATUC 401 responses, bans after three failures in ten minutes for one hour, and can be inspected or reversed with:
+The Fail2ban templates under `sandbox-edge/fail2ban` must be installed into the matching `/etc/fail2ban` directories and Fail2ban reloaded with sudo. The jail watches only CATUC 401 responses, bans after three failures in ten minutes for one hour, and inserts its HTTP/HTTPS-only rule into Docker's `DOCKER-USER` chain so an authentication ban does not block SSH. It can be inspected or reversed with:
 
 ```sh
 sudo fail2ban-client status traefik-catuc-auth
@@ -48,6 +48,6 @@ Only one developer may own the checkout. `staging` is frozen during announced cu
 
 ## Data and environment switching
 
-`backup-site CATEGORY` writes a checksummed database, public files, private files, and site configuration beneath `/srv/backups`. The scheduler retains daily and weekly generations. `switch-environment develop|staging|main` backs up the active branch, checks out the target branches, restores that branch's latest snapshot, migrates, builds custom assets, and clears caches.
+`backup-site CATEGORY` writes a checksummed database, public files, private files, and site configuration beneath `/srv/backups`. The scheduler retains daily and weekly generations. `switch-environment develop|staging|main` backs up the active branch, holds the persistent Bench processes, checks out and verifies the target manifest, restores that branch's latest snapshot, migrates, builds custom assets, restarts Bench, requires an internal HTTP health check, and then leaves maintenance mode.
 
 Environment switching is disruptive and must run only after notifying developers and enabling the public maintenance window. A target branch must already have a snapshot. Targeted data cleanup requires a reviewed Frappe command with dry-run output; raw SQL deletion is not an operational workflow.

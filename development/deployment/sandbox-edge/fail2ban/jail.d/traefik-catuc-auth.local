@@ -6,4 +6,4 @@ backend = auto
 maxretry = 3
 findtime = 10m
 bantime = 1h
-action = ufw
+action = iptables-multiport[name=traefik-catuc-auth, port="http,https", protocol=tcp, chain=DOCKER-USER]

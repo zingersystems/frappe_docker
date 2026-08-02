@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+bench_root=${BENCH_ROOT:-/workspace/development/frappe-bench}
+hold_file=${BENCH_HOLD_FILE:-/workspace/development/.bench-start.hold}
+pid_file=${BENCH_PID_FILE:-/workspace/development/.bench-start.pid}
+child_pid=
+
+cleanup() {
+	if [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; then
+		kill -TERM "$child_pid"
+		wait "$child_pid" 2>/dev/null || true
+	fi
+	rm -f "$pid_file"
+}
+trap cleanup EXIT
+trap 'exit 0' INT TERM
+
+cd "$bench_root"
+while true; do
+	while [ -e "$hold_file" ] || [ ! -x env/bin/python ] || [ ! -d "sites/${SITE_NAME:-academia-frappe-catuc}" ]; do
+		sleep 2
+	done
+
+	bench start &
+	child_pid=$!
+	printf '%s\n' "$child_pid" > "$pid_file"
+	wait "$child_pid" || true
+	rm -f "$pid_file"
+	child_pid=
+	sleep 2
+done
