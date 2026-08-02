@@ -19,14 +19,14 @@ Future projects use their own Compose project, private data network, volumes, se
 5. Transfer a checksummed Frappe backup and restore it with `catuc/scripts/restore-site`.
 6. Restart `frappe`, verify internal access, then verify the public authenticated route.
 
-The Fail2ban templates under `sandbox-edge/fail2ban` must be installed into the matching `/etc/fail2ban` directories and Fail2ban reloaded with sudo. The jail watches only CATUC 401 responses, bans after three failures in ten minutes for one hour, and inserts its HTTP/HTTPS-only rule into Docker's `DOCKER-USER` chain so an authentication ban does not block SSH. It can be inspected or reversed with:
+The Fail2ban templates under `sandbox-edge/fail2ban` must be installed into the matching `/etc/fail2ban` directories and Fail2ban reloaded with sudo. The jail polls the Docker bind-mounted Traefik log, parses its explicit UTC JSON timestamp, watches only CATUC 401 responses, bans after three failures in ten minutes for one hour, and inserts its HTTP/HTTPS-only rule into Docker's `DOCKER-USER` chain so an authentication ban does not block SSH. It can be inspected or reversed with:
 
 ```sh
 sudo fail2ban-client status traefik-catuc-auth
 sudo fail2ban-client set traefik-catuc-auth unbanip ADDRESS
 ```
 
-The reviewed one-time `sandbox-edge/install-host-integration` installer installs those templates, enables agent forwarding only for the `developers` group, validates SSH configuration, restarts Docker, reloads Fail2ban, and prints the jail status.
+The reviewed `sandbox-edge/install-host-integration` installer installs those templates, verifies the filter against a non-empty existing access log, enables agent forwarding only for the `developers` group, validates SSH configuration, restarts Docker, reloads Fail2ban, and prints the jail status. It is safe to rerun when host-integration templates change.
 
 An IP ban affects every user behind the same public NAT address. Confirm the source address in the jail status before banning or unbanning, and use the manual unban immediately if a school or office gateway is caught by repeated bad credentials.
 

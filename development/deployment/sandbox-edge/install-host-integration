@@ -12,6 +12,14 @@ install -m 0644 "$edge_root/fail2ban/filter.d/traefik-catuc-auth.conf" /etc/fail
 install -m 0644 "$edge_root/fail2ban/jail.d/traefik-catuc-auth.local" /etc/fail2ban/jail.d/traefik-catuc-auth.local
 install -m 0644 "$edge_root/sshd/00-academia-developers.conf" /etc/ssh/sshd_config.d/00-academia-developers.conf
 
+if [ -s "$edge_root/logs/access.json" ]; then
+	filter_result=$(fail2ban-regex "$edge_root/logs/access.json" /etc/fail2ban/filter.d/traefik-catuc-auth.conf)
+	if ! grep -Eq 'Failregex: [1-9][0-9]* total' <<<"$filter_result"; then
+		echo "CATUC filter did not match the existing Traefik access log" >&2
+		exit 1
+	fi
+fi
+
 sshd -t
 effective_forwarding=$(sshd -T -C user=colong,host=contabo.zs.sandbox,addr=127.0.0.1 | awk '$1 == "allowagentforwarding" {print $2}')
 if [ "$effective_forwarding" != "yes" ]; then

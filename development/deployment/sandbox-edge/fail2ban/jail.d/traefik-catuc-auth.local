@@ -2,7 +2,7 @@
 enabled = true
 filter = traefik-catuc-auth
 logpath = /srv/deploy/edge/logs/access.json
-backend = auto
+backend = polling
 maxretry = 3
 findtime = 10m
 bantime = 1h
