@@ -2,7 +2,7 @@
 
 ## Purpose
 
-- Owns the Frappe bench used locally and in the CATUC VPS devcontainer.
+- Owns the primary local Frappe development bench and the source mirrored into CATUC VPS staging.
 - Contains app source trees, site state, bench configuration, process files, logs, and the Python virtual environment.
 
 ## Ownership

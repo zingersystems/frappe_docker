@@ -2,7 +2,7 @@
 
 ## Purpose
 
-- Owns reproducible container, ingress, backup, environment-switching, and developer-session configuration for Academia VPS projects.
+- Owns reproducible container, ingress, backup, environment-switching, and staging configuration for Academia VPS projects.
 
 ## Ownership
 
@@ -16,6 +16,7 @@
 - Secrets, backups, runtime locks, generated manifests, and certificate state stay outside Git.
 - Environment changes must be backed up before source or schema changes are applied.
 - Never copy developer private SSH keys into the repository, VPS project tree, or devcontainer.
+- Keep feature authoring in the local Dev Container; promote committed revisions and deliberate checksummed data snapshots to the VPS staging environment.
 
 ## Work Guidance
 

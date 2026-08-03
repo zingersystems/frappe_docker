@@ -2,6 +2,8 @@
 
 ## Progress
 
+- 2026-08-03: Synchronized VPS feature work back into the primary local environment. Fast-forwarded `academia_core` from `053a157` to `12e3f01` and `academia_catuc` from `a4a40f5` to `5656338`; `frappe_pay_connect` already matched at `ea76354`. Created `backup/pre-vps-sync-20260803` in all three apps, restored the checksummed `academia-frappe-catuc` database and files into local `development.localhost`, retained local Docker/site settings, migrated and rebuilt all three apps, and verified 5 users, 290 File records, 59 Student Applicants, 3 Student Admissions, 3 Admission Forms, 3 public files, 174 private files, and HTTP 200 for `/`, `/apply`, and `/login`.
+
 - 2026-08-02: Restored the local VS Code Dev Container to a self-contained `.devcontainer/compose.yaml` stack after the Dev Container definition was accidentally pointed at the VPS-only CATUC Compose file. The local project name and `mariadb-data` volume identity remain `frappe_docker_devcontainer`, preserving the existing `development.localhost` database across rebuilds. Set that site as the bench default and recovered its orphaned web process; both `localhost:8000` and `development.localhost:8000` returned the CATUC sign-in page.
 - 2026-08-02: Provisioned `/srv/projects/academia/catuc/frappe/frappe_docker` as the single `academia-frappe-catuc` Compose stack and `/srv/deploy/edge` as the shared `sandbox-edge` Traefik project. Restored the checksummed `development.localhost` database and files into site `academia-frappe-catuc`; matched 839 tables, 14 users, 164 File records, and 47 physical files totaling 1,799,858 content bytes. Internal HTTP, public Let's Encrypt HTTPS, project Basic Auth, Socket.IO, Mailpit, MTN sandbox configuration, worker/scheduler operation, network isolation, scheduled/branch backups, and a process-safe `develop -> staging -> develop` data/source switch were verified. Remote runs passed Python compilation plus 196 Core, 70 CATUC, and 65 Pay Connect tests. Removed the one orphan File row created by the CATUC end-to-end test through Frappe's document API and refreshed all three clean branch baselines.
 - 2026-08-02: Completed host integration. SSH agent forwarding accessed the private CATUC GitLab origin; both Compose projects, the internal/public routes, and the scheduler recovered after Docker restart. A live test exposed that Fail2ban's auto backend did not consume the Docker bind-mounted access log, so the jail was changed to deterministic polling with an explicit Traefik UTC JSON timestamp and installer-side filter validation. The repeated test recorded three failures, banned external source `143.105.152.120`, blocked its fourth HTTPS request, and manually unbanned it successfully; public 401 gate access and internal 200 access recovered afterward.
@@ -21,7 +23,7 @@
 ## Decisions
 
 - Local editor development uses the self-contained `frappe_docker_devcontainer` Compose project and `development.localhost`; the `academia-frappe-catuc` stack is reserved for the VPS deployment contract and its external ingress/secrets.
-- CATUC uses one shared checkout and one active database in Compose project `academia-frappe-catuc`; branch-aligned data snapshots and manifests provide environment switching rather than parallel application stacks.
+- Local `development.localhost` is the primary development site. The Docker-hosted VPS is reserved for staging and multi-project hosting; move code through committed Git history and refresh data only through explicit checksummed backup/restore operations.
 - VPS-wide HTTP/HTTPS ingress belongs to the separate shared-infrastructure project `sandbox-edge`; only application web containers join its external Docker network.
 - Developer SSH keys remain off the VPS. Git remote access requires each developer's forwarded agent, repository-local identity, and the serialized runtime session.
 - Use `AGENTS.md` for stable contracts and `CONTINUITY.md` for progress, decisions, memories, and handoff notes.
@@ -33,10 +35,11 @@
 
 - Parent Git repository root is `/workspace`; the active project folder is `/workspace/development`.
 - `frappe-bench/apps/academia_core`, `frappe-bench/apps/academia_catuc`, `frappe-bench/apps/frappe_pay_connect`, and `frappe-bench/apps/payments` are nested Git repositories.
+- The pre-sync local rollback snapshot is `/home/colong/Development/Works/zinger/academia/erp/backups/local-before-vps-sync-20260803T151806Z`; the checksummed VPS import retained locally is `/home/colong/Development/Works/zinger/academia/erp/backups/vps-catuc-20260803T151837Z`.
 
 ## Handoff
 
-- The active VPS runtime is `develop`, all four shared repositories are on `develop`, and their SSH origin URLs are restored. The client gate password is retrievable by the project owner from `/srv/projects/academia/catuc/secrets/catuc-bda.initial-password`; do not copy it into Git or continuity docs.
+- The VPS feature commits now exist locally but remain ahead of GitLab by five Core commits and seven CATUC commits; push them only through the normal reviewed Git workflow. The parent local and VPS deployment repositories retain separate, divergent environment-specific commits and were intentionally not merged during the app/data sync.
 - Host integration and recovery acceptance are complete. GitLab branch protections and merge-request approval rules still require an authenticated GitLab API/UI session with subgroup-owner or Maintainer permissions; SSH repository access alone cannot configure them.
 - If `143.105.152.120` is still banned after the team-credential rotation, run `sudo fail2ban-client set traefik-catuc-auth unbanip 143.105.152.120` once before testing the new credential.
 - Root and bench-level DOX files are tracked by the parent repository after `.gitignore` exceptions.

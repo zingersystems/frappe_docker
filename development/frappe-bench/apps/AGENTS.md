@@ -19,7 +19,7 @@
 - Frappe module folders listed in `modules.txt` must be importable Python packages with `__init__.py` where required by the framework.
 - Every durable schema, configuration, seed, and data change must reach production through standard DocType sync, `after_install`/`after_migrate`, an ordered patch, a fixture, or another idempotent app-owned provisioner. A manual Desk or database operation may be used for diagnosis but must be codified before closeout.
 - `academia_core`, `academia_catuc`, and `frappe_pay_connect` use private GitLab origins beneath `Zinger-Teams/catuc-bamenda/frappe`, with `develop` for integration, `staging` for customer tests, and `main` for approved releases.
-- Shared VPS development uses one checkout; developers must acquire the runtime session, set repository-local Git identity, branch from `develop`, and release the runtime after pushing their work.
+- Perform feature development in the local Dev Container. Treat VPS app checkouts as staging deployments that receive reviewed, committed code rather than as primary authoring environments.
 
 ## Work Guidance
 

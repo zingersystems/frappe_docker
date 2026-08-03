@@ -98,7 +98,7 @@ When the user requests a durable behavior change, record it here or in the relev
 - Automatically commit affected files after each meaningful change using a suitable message for each affected Git repository.
 - Maintain continuity records so future agents can track progress, decisions, durable memories, and handoff context across the workspace and nested app repositories.
 - Make every durable project change reproducible on production through app installation or migration. Use standard DocTypes, hooks, patches, fixtures, or idempotent provisioning; never leave manual Desk or database work as a required deployment step.
-- Host CATUC development in the `academia-frappe-catuc` Compose project, with one shared checkout and serialized developer branch sessions.
+- Use the local self-contained Dev Container as the primary development environment; reserve the Docker-hosted VPS for staging and multi-project service hosting rather than interactive development.
 - Keep the local VS Code Dev Container on its self-contained `.devcontainer/compose.yaml` stack and `development.localhost` site; VPS-only secrets, paths, and ingress stay in `development/deployment/catuc/compose.yaml`.
 - Use `sandbox-edge` at `/srv/deploy/edge` as the VPS-wide ingress for schools and other development projects.
 - Use `main`, `develop`, and `staging` as the stable, integration, and customer-test branches for custom apps.
@@ -108,4 +108,4 @@ When the user requests a durable behavior change, record it here or in the relev
 - `frappe-bench/AGENTS.md` covers the Frappe bench runtime, installed apps, site configuration, logs, and bench-level operations.
 - `research/AGENTS.md` covers source requirements, onboarding reference material, and decision inputs.
 - `vscode-example/AGENTS.md` covers reusable VS Code task, launch, and settings examples.
-- `deployment/AGENTS.md` covers VPS Compose, shared ingress, backups, branch switching, and developer sessions.
+- `deployment/AGENTS.md` covers VPS Compose, shared ingress, backups, branch switching, and staging operations.
