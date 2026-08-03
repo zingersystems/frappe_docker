@@ -2,6 +2,7 @@
 
 ## Progress
 
+- 2026-08-03: Renamed the local Dev Container display name to `Academia Frappe` and added the official OpenAI Codex extension (`openai.chatgpt`) to the container-provisioned VS Code extensions. Preserved the `frappe_docker_devcontainer` Compose project name and existing volume identity.
 - 2026-08-03: Synchronized VPS feature work back into the primary local environment. Fast-forwarded `academia_core` from `053a157` to `12e3f01` and `academia_catuc` from `a4a40f5` to `5656338`; `frappe_pay_connect` already matched at `ea76354`. Created `backup/pre-vps-sync-20260803` in all three apps, restored the checksummed `academia-frappe-catuc` database and files into local `development.localhost`, retained local Docker/site settings, migrated and rebuilt all three apps, and verified 5 users, 290 File records, 59 Student Applicants, 3 Student Admissions, 3 Admission Forms, 3 public files, 174 private files, and HTTP 200 for `/`, `/apply`, and `/login`.
 
 - 2026-08-02: Restored the local VS Code Dev Container to a self-contained `.devcontainer/compose.yaml` stack after the Dev Container definition was accidentally pointed at the VPS-only CATUC Compose file. The local project name and `mariadb-data` volume identity remain `frappe_docker_devcontainer`, preserving the existing `development.localhost` database across rebuilds. Set that site as the bench default and recovered its orphaned web process; both `localhost:8000` and `development.localhost:8000` returned the CATUC sign-in page.

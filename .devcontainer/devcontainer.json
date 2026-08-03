@@ -1,5 +1,5 @@
 {
-  "name": "Academia Frappe CATUC",
+  "name": "Academia Frappe",
   "forwardPorts": [8000, 9000, 8025],
   "remoteUser": "frappe",
   "customizations": {
@@ -12,7 +12,8 @@
         "mtxr.sqltools-driver-mysql",
         "vue.volar",
         "esbenp.prettier-vscode",
-        "charliermarsh.ruff"
+        "charliermarsh.ruff",
+        "openai.chatgpt"
       ],
       "settings": {
         "terminal.integrated.profiles.linux": {
