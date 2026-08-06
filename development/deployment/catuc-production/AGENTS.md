@@ -31,6 +31,7 @@
 - Production email stays muted until the exact formerly failing document renders as a valid PDF and one approved print-attached message reaches `Sent`.
 - Old-live data is rollback evidence. The checksummed `development.localhost` snapshot is authoritative and is restored without merging old-live records.
 - Full authority and rollback snapshots contain secrets and private files; keep them under ignored local `.deployment-snapshots` or live `/srv/apps/academia/frappe/backups`, never Git.
+- During routine in-place releases, clear site maintenance mode before waiting on the backend health check; the health endpoint returns a maintenance response and cannot become healthy while maintenance remains enabled.
 
 ## Work Guidance
 
