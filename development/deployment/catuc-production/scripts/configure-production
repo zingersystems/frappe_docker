@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target_host=${TARGET_HOST:-contabo.catuc.bda.portal}
+remote_root=${REMOTE_ROOT:-/srv/apps/academia/frappe}
+
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+	"cd '$remote_root' && docker compose --env-file .env -f compose.yaml exec -T production-backend bench --site portal.catuc.org console" <<'PY'
+import frappe
+
+values = {
+	"doctype": "Print Format",
+	"name": "Standard",
+	"print_format_for": "DocType",
+	"doc_type": "Email Account",
+	"module": "Email",
+	"standard": "No",
+	"custom_format": 0,
+	"disabled": 0,
+	"pdf_generator": "chrome",
+}
+
+if frappe.db.exists("Print Format", "Standard"):
+	doc = frappe.get_doc("Print Format", "Standard")
+	doc.update(values)
+	doc.save(ignore_permissions=True)
+else:
+	frappe.get_doc(values).insert(ignore_permissions=True)
+
+frappe.db.commit()
+frappe.clear_cache(doctype="Print Format")
+assert frappe.get_cached_value("Print Format", "Standard", "pdf_generator") == "chrome"
+print("Standard attached prints use Chromium")
+exit()
+PY

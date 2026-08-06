@@ -125,7 +125,7 @@ services:
       production-websocket:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail --silent --header 'Host: ${PUBLIC_HOSTNAME:-portal.catuc.org}' http://127.0.0.1/api/method/ping >/dev/null"]
+      test: ["CMD-SHELL", "curl --fail --silent --header 'Host: ${PUBLIC_HOSTNAME:-portal.catuc.org}' http://127.0.0.1:8080/api/method/ping >/dev/null"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -172,6 +172,55 @@ services:
     profiles: ["operations"]
     restart: "no"
     command: ["bench", "--site", "${SITE_NAME:-portal.catuc.org}", "backup", "--with-files", "--compress"]
+
+  production-restore:
+    <<: [*image, *configured]
+    profiles: ["operations"]
+    restart: "no"
+    entrypoint: ["bash", "-c"]
+    command:
+      - >
+        set -euo pipefail;
+        cd /snapshot;
+        sha256sum --check SHA256SUMS;
+        cd /home/frappe/frappe-bench;
+        test ! -e "sites/$$SITE_NAME";
+        db_root_password=$$(tr -d '\r\n' < /run/secrets/mariadb_root_password);
+        db_password=$$(openssl rand -hex 24);
+        admin_password=$$(openssl rand -base64 36);
+        encryption_key=$$(python -c 'import json; print(json.load(open("/snapshot/site-config.json"))["encryption_key"])');
+        bench new-site "$$SITE_NAME"
+        --db-host production-mariadb
+        --db-port 3306
+        --db-root-username root
+        --db-root-password "$$db_root_password"
+        --db-password "$$db_password"
+        --mariadb-user-host-login-scope=%
+        --admin-password "$$admin_password";
+        bench --site "$$SITE_NAME" set-config encryption_key "$$encryption_key";
+        bench --site "$$SITE_NAME" restore /snapshot/database.sql.gz
+        --with-public-files /snapshot/public-files.tgz
+        --with-private-files /snapshot/private-files.tgz
+        --db-root-username root
+        --db-root-password "$$db_root_password";
+        bench --site "$$SITE_NAME" set-config host_name "https://$$PUBLIC_HOSTNAME";
+        bench --site "$$SITE_NAME" set-config developer_mode 0;
+        bench --site "$$SITE_NAME" set-config allow_tests false;
+        bench --site "$$SITE_NAME" set-config maintenance_mode 1;
+        bench use "$$SITE_NAME";
+        chmod 0600 "sites/$$SITE_NAME/site_config.json";
+        printf '%s\n' "Candidate restore complete in maintenance mode";
+    environment:
+      SITE_NAME: ${SITE_NAME:-portal.catuc.org}
+      PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:-portal.catuc.org}
+    secrets:
+      - mariadb_root_password
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - logs:/home/frappe/frappe-bench/logs
+      - ${AUTHORITY_SNAPSHOT:?Set AUTHORITY_SNAPSHOT to the remote checksummed snapshot}:/snapshot:ro
+    networks:
+      - frappe
 
   production-mariadb:
     image: mariadb:11.8

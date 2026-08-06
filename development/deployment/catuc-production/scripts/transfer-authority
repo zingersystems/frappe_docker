@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+	printf 'Usage: transfer-authority SNAPSHOT_DIRECTORY\n' >&2
+	exit 2
+fi
+
+snapshot=$(realpath "$1")
+target_host=${TARGET_HOST:-contabo.catuc.bda.portal}
+remote_root=${REMOTE_ROOT:-/srv/apps/academia/frappe}
+snapshot_name=$(basename "$snapshot")
+destination="$remote_root/backups/authority/$snapshot_name"
+staging="$remote_root/.authority-$snapshot_name"
+
+case "$snapshot" in
+	/workspace/development/.deployment-snapshots/authority/*) ;;
+	*) printf 'Refusing source outside the authority snapshot root\n' >&2; exit 1 ;;
+esac
+
+for required in database.sql.gz public-files.tgz private-files.tgz site-config.json SHA256SUMS; do
+	[[ -f $snapshot/$required ]] || {
+		printf 'Missing %s/%s\n' "$snapshot" "$required" >&2
+		exit 1
+	}
+done
+
+(
+	cd "$snapshot"
+	sha256sum --check SHA256SUMS
+)
+
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+	"set -eu; test ! -e '$destination'; test ! -e '$staging'; install -d -m 0700 '$staging' '$remote_root/backups/authority'"
+
+cleanup_remote=true
+cleanup() {
+	if [[ $cleanup_remote == true ]]; then
+		ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" "rm -rf -- '$staging'" || true
+	fi
+}
+trap cleanup EXIT
+
+tar -C "$snapshot" -cf - database.sql.gz public-files.tgz private-files.tgz site-config.json SHA256SUMS | \
+	ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" "tar -xf - -C '$staging'"
+
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+	"set -eu; chmod 0600 '$staging'/*; cd '$staging'; sha256sum --check SHA256SUMS; mv '$staging' '$destination'"
+cleanup_remote=false
+
+printf '%s:%s\n' "$target_host" "$destination"

@@ -21,9 +21,14 @@
 - Images use `registry.gitlab.com/zinger-teams/academia/frappe:frappe16-[Y-m-d]` tags and production deploys pin the resolved image digest.
 - Private app builds use forwarded SSH agent and known-host mounts through BuildKit; keys and credentials never enter the build context, image layers, or VPS filesystem.
 - Site migrations run through the dedicated `production-migrator` service and must complete before the frontend starts.
+- `production-restore` is an operations-only, one-shot service that verifies the authority snapshot, creates fresh production database credentials, restores database/files and the encryption key, and leaves the site in maintenance mode.
+- The VPS bind filesystem root-squashes mounted ownership. Mounted secret and snapshot leaf files therefore require read bits inside containers; confidentiality is enforced by their mode-0700 host parent directories and by mounting them only into declared services.
+- Cutover switches the frontend router first and must render the exact active Email Account PDF through canonical HTTPS before legacy workers stop or candidate workers/scheduler start. Any failed gate restores the legacy router.
+- Production configures the built-in-name `Standard` Print Format selector with `pdf_generator=chrome`; this leaves Standard template rendering unchanged while making queued `attach_print` use the image's configured Chromium engine.
 - Backend and worker roles resolve `portal.catuc.org` through Docker `host-gateway` so PDF generators fetch canonical HTTPS assets through Traefik without joining the edge network.
 - Production email stays muted until the exact formerly failing document renders as a valid PDF and one approved print-attached message reaches `Sent`.
 - Old-live data is rollback evidence. The checksummed `development.localhost` snapshot is authoritative and is restored without merging old-live records.
+- Full authority and rollback snapshots contain secrets and private files; keep them under ignored local `.deployment-snapshots` or live `/srv/apps/academia/frappe/backups`, never Git.
 
 ## Work Guidance
 

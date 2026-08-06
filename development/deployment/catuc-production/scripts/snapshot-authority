@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+workspace_root=${WORKSPACE_ROOT:-/workspace/development}
+bench_root=${BENCH_ROOT:-$workspace_root/frappe-bench}
+site_name=${SITE_NAME:-development.localhost}
+snapshot_root=${SNAPSHOT_ROOT:-$workspace_root/.deployment-snapshots/authority}
+timestamp=${SNAPSHOT_TIMESTAMP:-$(date -u +%Y%m%dT%H%M%SZ)}
+destination="$snapshot_root/$timestamp"
+
+case "$destination" in
+	"$workspace_root"/.deployment-snapshots/authority/*) ;;
+	*) printf 'Refusing snapshot outside %s/.deployment-snapshots/authority\n' "$workspace_root" >&2; exit 1 ;;
+esac
+
+if [[ -e $destination ]]; then
+	printf 'Snapshot destination already exists: %s\n' "$destination" >&2
+	exit 1
+fi
+
+install -d -m 0700 "$destination"
+cleanup=true
+trap 'if [[ $cleanup == true ]]; then rm -rf "$destination"; fi' EXIT
+
+cd "$bench_root"
+bench --site "$site_name" backup \
+	--with-files \
+	--compress \
+	--backup-path-db "$destination/database.sql.gz" \
+	--backup-path-files "$destination/public-files.tgz" \
+	--backup-path-private-files "$destination/private-files.tgz" \
+	--backup-path-conf "$destination/site-config.json"
+
+(
+	cd "$destination"
+	sha256sum database.sql.gz public-files.tgz private-files.tgz site-config.json > SHA256SUMS
+	sha256sum --check SHA256SUMS
+)
+chmod 0600 "$destination"/*
+cleanup=false
+printf '%s\n' "$destination"

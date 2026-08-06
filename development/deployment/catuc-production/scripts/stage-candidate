@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+deployment_dir=$(cd "$script_dir/.." && pwd)
+target_host=${TARGET_HOST:-contabo.catuc.bda.portal}
+remote_root=${REMOTE_ROOT:-/srv/apps/academia/frappe}
+authority_snapshot=${AUTHORITY_SNAPSHOT:-/srv/apps/academia/frappe/backups/authority/20260806T144322Z}
+
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+	"set -eu
+	 test -f '$authority_snapshot/SHA256SUMS'
+	 (cd '$authority_snapshot' && sha256sum --check SHA256SUMS)
+	 chmod 0755 '$authority_snapshot'
+	 chmod 0644 '$authority_snapshot'/*
+	 if docker volume inspect academia-frappe-production_sites >/dev/null 2>&1; then
+		 test -z \"\$(docker run --rm -v academia-frappe-production_sites:/sites alpine:3.23 find /sites -mindepth 2 -name site_config.json -print -quit)\"
+	 fi
+	 install -d -m 0700 '$remote_root/secrets'
+	 umask 077
+	 if [ ! -f '$remote_root/secrets/mariadb_root_password' ]; then
+		 openssl rand -hex 32 > '$remote_root/secrets/mariadb_root_password'
+	 fi
+	 chmod 0644 '$remote_root/secrets/mariadb_root_password'"
+
+tar -C "$deployment_dir" -cf - compose.yaml .env.example "manifests/release-2026-08-06.json" | \
+	ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+		"set -eu; tar -xf - -C '$remote_root'; cp '$remote_root/.env.example' '$remote_root/.env'; chmod 0600 '$remote_root/.env'"
+
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+	"set -eu
+	 cd '$remote_root'
+	 docker compose --env-file .env -f compose.yaml config --quiet
+	 docker compose --env-file .env -f compose.yaml pull production-mariadb production-redis-cache production-redis-queue production-configurator production-restore
+	 docker compose --env-file .env -f compose.yaml up -d production-mariadb production-redis-cache production-redis-queue
+	 docker compose --profile operations --env-file .env -f compose.yaml run --rm production-restore"
+
+printf 'Candidate restored in maintenance mode on %s\n' "$target_host"

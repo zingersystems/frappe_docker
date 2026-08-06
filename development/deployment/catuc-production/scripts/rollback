@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target_host=${TARGET_HOST:-contabo.catuc.bda.portal}
+remote_root=${REMOTE_ROOT:-/srv/apps/academia/frappe}
+legacy_root=${LEGACY_ROOT:-/srv/apps/academia}
+
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+	"set -euo pipefail
+	 cd '$remote_root'
+	 sed -i 's/^TRAEFIK_ENABLE=.*/TRAEFIK_ENABLE=false/' .env
+	 docker compose --env-file .env -f compose.yaml up -d --no-deps --force-recreate production-frontend
+	 docker compose --env-file .env -f compose.yaml stop \
+		 production-scheduler production-queue-short production-queue-default production-queue-long
+	 docker compose -f '$legacy_root/compose.yml' up -d
+	 curl --fail --silent https://portal.catuc.org/api/method/ping >/dev/null
+	 printf '%s\n' 'Legacy router restored; candidate data services retained'"

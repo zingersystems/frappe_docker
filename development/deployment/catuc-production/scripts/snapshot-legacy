@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target_host=${TARGET_HOST:-contabo.catuc.bda.portal}
+container=${LEGACY_BACKEND_CONTAINER:-catuc_edu-backend-1}
+site_name=${LEGACY_SITE_NAME:-portal.catuc.org}
+remote_root=${REMOTE_ROOT:-/srv/apps/academia/frappe}
+timestamp=${SNAPSHOT_TIMESTAMP:-$(date -u +%Y%m%dT%H%M%SZ)}
+container_snapshot="/tmp/catuc-production-rollback-$timestamp"
+host_snapshot="$remote_root/backups/legacy/$timestamp"
+
+case "$host_snapshot" in
+	/srv/apps/academia/frappe/backups/legacy/*) ;;
+	*) printf 'Refusing snapshot outside /srv/apps/academia/frappe/backups/legacy\n' >&2; exit 1 ;;
+esac
+
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+	"set -eu
+	 test ! -e '$host_snapshot'
+	 docker exec '$container' sh -lc '
+	   set -eu
+	   test ! -e \"$container_snapshot\"
+	   install -d -m 0700 \"$container_snapshot\"
+	   trap '\"'\"'rm -rf \"$container_snapshot\"'\"'\"' EXIT
+	   bench --site \"$site_name\" backup \\
+	     --with-files \\
+	     --compress \\
+	     --backup-path-db \"$container_snapshot/database.sql.gz\" \\
+	     --backup-path-files \"$container_snapshot/public-files.tgz\" \\
+	     --backup-path-private-files \"$container_snapshot/private-files.tgz\" \\
+	     --backup-path-conf \"$container_snapshot/site-config.json\"
+	   cd \"$container_snapshot\"
+	   sha256sum database.sql.gz public-files.tgz private-files.tgz site-config.json > SHA256SUMS
+	   sha256sum --check SHA256SUMS
+	   trap - EXIT
+	 '
+	 install -d -m 0700 '$host_snapshot'
+	 docker cp '$container:$container_snapshot/.' '$host_snapshot/'
+	 chmod 0600 '$host_snapshot'/*
+	 (cd '$host_snapshot' && sha256sum --check SHA256SUMS)
+	 docker exec '$container' rm -rf '$container_snapshot'"
+
+printf '%s:%s\n' "$target_host" "$host_snapshot"
