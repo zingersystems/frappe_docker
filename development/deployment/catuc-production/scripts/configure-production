@@ -5,7 +5,7 @@ target_host=${TARGET_HOST:-contabo.catuc.bda.portal}
 remote_root=${REMOTE_ROOT:-/srv/apps/academia/frappe}
 
 ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
-	"cd '$remote_root' && docker compose --env-file .env -f compose.yaml exec -T production-backend bench --site portal.catuc.org console" <<'PY'
+	"cd '$remote_root' && docker compose --env-file .env -f compose.yaml exec -T backend bench --site portal.catuc.org console" <<'PY'
 import frappe
 
 values = {

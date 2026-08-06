@@ -2,6 +2,8 @@
 
 ## Progress
 
+- 2026-08-06: Renamed the live Compose project from `academia-frappe-production` to `academia-frappe`, removed `production-` from all service keys and internal DNS names, and migrated the four persistent volumes offline to explicit `academia-frappe_*` names. Source and target entry counts plus regular-file bytes matched for MariaDB (`1892`, `318850124`), Redis queue (`5`, `1439029`), sites (`216`, `242386036`), and logs (`7`, `225890`). Configurator now rewrites stale site-level `db_host` values before migration. All 10 persistent services passed post-cleanup checks; seven apps, 14 users, public ping, canonical assets, and a 52,250-byte attached-print PDF were verified. Removed the four old volumes, all stopped containers, and all unused images, reclaiming 3.884 GB of images and 30.44 MB of containers.
+
 - 2026-08-06: Completed the `portal.catuc.org` production replacement under `/srv/apps/academia/frappe` using immutable image `registry.gitlab.com/zinger-teams/academia/frappe@sha256:3ac88f19f80751876be0795d06feb1b773dff453f16cd39197b9077ac8fc9b79`. Restored the checksummed authoritative local database and files, migrated successfully, passed private/public/canonical-asset/exact-attached-print cutover gates, enabled the scheduler, and started three healthy workers. Traefik now routes `/`, `/apply`, and `/api/method/ping` to the new stack with HTTP 200; all seven expected apps are installed. The legacy Compose containers were removed without deleting their volumes or rollback snapshots.
 
 - 2026-08-06: Verified the original `Attach Document Print` failure end to end. Production `Standard` uses Chromium and `frappe.attach_print` returned a valid 52,250-byte PDF; synchronous SMTP queue `0o6kqe4knd` reached `Sent` with no error. Local `development.localhost` produced a valid 24,499-byte attached PDF after starting `bench serve --port 8000`, confirming the remaining local `ConnectionRefusedError` was only the absent web listener rather than canonical-host resolution.
@@ -45,6 +47,7 @@
 
 ## Decisions
 
+- The live production Compose project is `academia-frappe`; services use unprefixed role names and persistent volumes use explicit `academia-frappe_*` physical names. Future volume-name changes require stopped source and target projects, metadata-preserving copy, entry/content-byte verification, acceptance on target volumes, and explicit source retirement.
 - Production image construction follows the official Frappe Docker layered build and migrator patterns. Stable app tags/branches are verified against the release manifest before build; BuildKit receives `apps.json`, SSH agent access, and known hosts ephemerally.
 - The current production deployment temporarily permits a read-only WSL `~/.ssh` bind into the Dev Container. This exposes private keys to container processes, so it is limited to deployment access and must be removed at closeout.
 - Production image tags use `frappe16-[Y-m-d]`; the 2026-08-06 candidate is `frappe16-2026-08-06`, with digest pinning required for deployment.
@@ -67,7 +70,7 @@
 
 ## Handoff
 
-- Production is live from `/srv/apps/academia/frappe`; do not rerun cutover for routine operations. Retain the old volumes and checksummed snapshots until the rollback-retention window is explicitly closed.
+- Production is live from `/srv/apps/academia/frappe` as Compose project `academia-frappe`; do not rerun cutover for routine operations. The old `academia-frappe-production_*` volumes were removed after acceptance; retain the checksummed snapshots and fresh `20260806_214137` site backup for data recovery.
 - Local attached-print verification requires a running Bench web listener on port 8000 so the PDF renderer can fetch canonical assets. The temporary read-only WSL SSH mount is defined in the host-side Dev Container configuration outside this checkout and should be removed when deployment access is no longer needed.
 - The VPS feature commits now exist locally but remain ahead of GitLab by five Core commits and seven CATUC commits; push them only through the normal reviewed Git workflow. The parent local and VPS deployment repositories retain separate, divergent environment-specific commits and were intentionally not merged during the app/data sync.
 - Host integration and recovery acceptance are complete. GitLab branch protections and merge-request approval rules still require an authenticated GitLab API/UI session with subgroup-owner or Maintainer permissions; SSH repository access alone cannot configure them.

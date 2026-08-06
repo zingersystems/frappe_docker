@@ -16,12 +16,14 @@
 ## Local Contracts
 
 - The live project root is `/srv/apps/academia/frappe` and the public hostname is `portal.catuc.org`.
+- The live Compose project is `academia-frappe`; service keys are role names without environment prefixes, and persistent volumes use explicit `academia-frappe_*` physical names.
 - Every service joins the private external network named `frappe`; only `frontend` joins the discovered shared edge network.
 - MariaDB, Redis, backend, websocket, workers, and scheduler publish no host ports.
 - Images use `registry.gitlab.com/zinger-teams/academia/frappe:frappe16-[Y-m-d]` tags and production deploys pin the resolved image digest.
 - Private app builds use forwarded SSH agent and known-host mounts through BuildKit; keys and credentials never enter the build context, image layers, or VPS filesystem.
-- Site migrations run through the dedicated `production-migrator` service and must complete before the frontend starts.
-- `production-restore` is an operations-only, one-shot service that verifies the authority snapshot, creates fresh production database credentials, restores database/files and the encryption key, and leaves the site in maintenance mode.
+- Site migrations run through the dedicated `migrator` service and must complete before the frontend starts.
+- `restore` is an operations-only, one-shot service that verifies the authority snapshot, creates fresh production database credentials, restores database/files and the encryption key, and leaves the site in maintenance mode.
+- Compose volume renames are offline migrations: stop both project names, copy with metadata preservation, validate source/target entry counts and byte totals, accept the new stack, and only then remove old volumes.
 - The VPS bind filesystem root-squashes mounted ownership. Mounted secret and snapshot leaf files therefore require read bits inside containers; confidentiality is enforced by their mode-0700 host parent directories and by mounting them only into declared services.
 - Cutover switches the frontend router first and must render the exact active Email Account PDF through canonical HTTPS before legacy workers stop or candidate workers/scheduler start. Any failed gate restores the legacy router.
 - Production configures the built-in-name `Standard` Print Format selector with `pdf_generator=chrome`; this leaves Standard template rendering unchanged while making queued `attach_print` use the image's configured Chromium engine.

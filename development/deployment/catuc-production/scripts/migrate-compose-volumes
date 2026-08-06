@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target_host=${TARGET_HOST:-contabo.catuc.bda.portal}
+
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" bash -s <<'REMOTE'
+set -euo pipefail
+
+old_project=academia-frappe-production
+new_project=academia-frappe
+volume_suffixes=(mariadb-data redis-queue-data sites logs)
+
+if docker ps --format '{{.Label "com.docker.compose.project"}}' | grep -Fxq "$old_project"; then
+	printf 'Old project still has running containers; stop it before copying volumes.\n' >&2
+	exit 1
+fi
+if docker ps --format '{{.Label "com.docker.compose.project"}}' | grep -Fxq "$new_project"; then
+	printf 'New project already has running containers; stop it before copying volumes.\n' >&2
+	exit 1
+fi
+
+for suffix in "${volume_suffixes[@]}"; do
+	source_volume="${old_project}_${suffix}"
+	target_volume="${new_project}_${suffix}"
+	docker volume inspect "$source_volume" >/dev/null
+	docker volume create \
+		--label "com.docker.compose.project=$new_project" \
+		--label "com.docker.compose.volume=$suffix" \
+		"$target_volume" >/dev/null
+	if ! docker run --rm -v "$target_volume:/target:ro" alpine:3.23 \
+		sh -c 'test -z "$(find /target -mindepth 1 -print -quit)"'; then
+		printf 'Target volume is not empty: %s\n' "$target_volume" >&2
+		exit 1
+	fi
+done
+
+for suffix in "${volume_suffixes[@]}"; do
+	source_volume="${old_project}_${suffix}"
+	target_volume="${new_project}_${suffix}"
+	docker run --rm \
+		-v "$source_volume:/source:ro" \
+		-v "$target_volume:/target" \
+		alpine:3.23 sh -c 'cd /source && tar cpf - . | tar xpf - -C /target'
+
+	source_stats=$(docker run --rm -v "$source_volume:/data:ro" alpine:3.23 \
+		sh -c 'entries=$(find /data -mindepth 1 | wc -l); bytes=$(find /data -type f -exec stat -c %s {} \; | awk "{sum += \$1} END {print sum + 0}"); printf "%s %s" "$entries" "$bytes"')
+	target_stats=$(docker run --rm -v "$target_volume:/data:ro" alpine:3.23 \
+		sh -c 'entries=$(find /data -mindepth 1 | wc -l); bytes=$(find /data -type f -exec stat -c %s {} \; | awk "{sum += \$1} END {print sum + 0}"); printf "%s %s" "$entries" "$bytes"')
+	if [[ $source_stats != "$target_stats" ]]; then
+		printf 'Volume verification failed for %s: source=%s target=%s\n' \
+			"$suffix" "$source_stats" "$target_stats" >&2
+		exit 1
+	fi
+	printf '%s -> %s verified (%s)\n' "$source_volume" "$target_volume" "$target_stats"
+done
+
+for required_volume in "${new_project}_mariadb-data" "${new_project}_sites"; do
+	docker run --rm -v "$required_volume:/data:ro" alpine:3.23 \
+		sh -c 'test -n "$(find /data -mindepth 1 -print -quit)"'
+done
+
+printf 'All Compose volumes copied and verified.\n'
+REMOTE

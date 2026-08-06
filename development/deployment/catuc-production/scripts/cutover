@@ -12,29 +12,29 @@ ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
 	 legacy='docker compose -f $legacy_root/compose.yml'
 	 rollback() {
 		 sed -i 's/^TRAEFIK_ENABLE=.*/TRAEFIK_ENABLE=false/' .env
-		 \$candidate up -d --no-deps --force-recreate production-frontend || true
-		 \$candidate stop production-scheduler production-queue-short production-queue-default production-queue-long || true
+		 \$candidate up -d --no-deps --force-recreate frontend || true
+		 \$candidate stop scheduler queue-short queue-default queue-long || true
 		 \$legacy up -d
 	 }
 	 trap rollback ERR
 
 	 docker run --rm --network frappe curlimages/curl:8.16.0 --fail --silent \
 		 --header 'Host: portal.catuc.org' \
-		 http://production-frontend:8080/api/method/ping >/dev/null
+		 http://frontend:8080/api/method/ping >/dev/null
 	 printf '%s\n' '[cutover] private candidate healthy'
 	 cp .env .env.pre-cutover
 	 chmod 0600 .env.pre-cutover
 	 sed -i 's/^TRAEFIK_ENABLE=.*/TRAEFIK_ENABLE=true/' .env
 	 \$legacy stop frontend
-	 \$candidate up -d --wait --wait-timeout 120 --no-deps --force-recreate production-frontend
+	 \$candidate up -d --wait --wait-timeout 120 --no-deps --force-recreate frontend
 	 curl --fail --silent https://portal.catuc.org/api/method/ping >/dev/null
 	 printf '%s\n' '[cutover] public candidate healthy'
-	 \$candidate exec -T production-backend curl --fail --silent \
+	 \$candidate exec -T backend curl --fail --silent \
 		 https://portal.catuc.org/assets/frappe/dist/css/print.bundle.YQDTASW7.css \
 		 >/dev/null
 	 printf '%s\n' '[cutover] canonical print asset healthy'
 
-	 if ! \$candidate exec -T production-backend bench --site portal.catuc.org execute frappe.attach_print \
+	 if ! \$candidate exec -T backend bench --site portal.catuc.org execute frappe.attach_print \
 		 --kwargs '{\"doctype\":\"Email Account\",\"name\":\"CATUC Bamenda\",\"print_format\":\"Standard\"}' \
 		 > /tmp/catuc-attached-print.out 2>&1; then
 		 python3 -c 'from pathlib import Path; text=Path(\"/tmp/catuc-attached-print.out\").read_text(errors=\"replace\"); print(\"\\n\".join(line[:2000] for line in text.splitlines() if any(marker in line for marker in (\"HostNotFoundError\", \"ContentNotFoundError\", \"ConnectionRefusedError\", \"Exit with code\", \"header-html\", \"footer-html\"))))'
@@ -48,7 +48,7 @@ ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
 	 printf '%s\n' '[cutover] attached-print PDF valid'
 
 	 \$legacy stop
-	 \$candidate run --rm --no-deps --entrypoint bench production-backend \
+	 \$candidate run --rm --no-deps --entrypoint bench backend \
 		 --site portal.catuc.org enable-scheduler
 	 \$candidate up -d --wait --wait-timeout 180
 	 curl --fail --silent https://portal.catuc.org/api/method/ping >/dev/null

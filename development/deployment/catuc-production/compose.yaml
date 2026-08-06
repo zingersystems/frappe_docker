@@ -1,4 +1,4 @@
-name: academia-frappe-production
+name: academia-frappe
 
 x-image: &image
   image: ${FRAPPE_IMAGE:?Set FRAPPE_IMAGE to the registry image digest}
@@ -14,7 +14,7 @@ x-image: &image
 
 x-configured: &configured
   depends_on:
-    production-configurator:
+    configurator:
       condition: service_completed_successfully
 
 x-runtime: &runtime
@@ -30,7 +30,7 @@ x-runtime: &runtime
     - frappe
 
 services:
-  production-configurator:
+  configurator:
     <<: *image
     restart: "no"
     entrypoint: ["bash", "-c"]
@@ -43,12 +43,18 @@ services:
         bench set-config -g redis_queue "redis://$$REDIS_QUEUE";
         bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
         bench set-config -gp socketio_port "$$SOCKETIO_PORT";
-        bench set-config -g chromium_path /usr/bin/chromium-headless-shell
+        bench set-config -g chromium_path /usr/bin/chromium-headless-shell;
+        for site_config in sites/*/site_config.json; do
+          [ -f "$$site_config" ] || continue;
+          site=$${site_config#sites/};
+          site=$${site%/site_config.json};
+          bench --site "$$site" set-config db_host "$$DB_HOST";
+        done
     environment:
-      DB_HOST: production-mariadb
+      DB_HOST: mariadb
       DB_PORT: "3306"
-      REDIS_CACHE: production-redis-cache:6379
-      REDIS_QUEUE: production-redis-queue:6379
+      REDIS_CACHE: redis-cache:6379
+      REDIS_QUEUE: redis-queue:6379
       SOCKETIO_PORT: "9000"
     extra_hosts:
       - "${PUBLIC_HOSTNAME:-portal.catuc.org}:host-gateway"
@@ -58,14 +64,14 @@ services:
     networks:
       - frappe
     depends_on:
-      production-mariadb:
+      mariadb:
         condition: service_healthy
-      production-redis-cache:
+      redis-cache:
         condition: service_healthy
-      production-redis-queue:
+      redis-queue:
         condition: service_healthy
 
-  production-backend:
+  backend:
     <<: *runtime
     environment:
       GUNICORN_THREADS: ${GUNICORN_THREADS:-4}
@@ -78,7 +84,7 @@ services:
       retries: 10
       start_period: 30s
 
-  production-migrator:
+  migrator:
     <<: *runtime
     restart: on-failure:5
     entrypoint: ["bash", "-c"]
@@ -97,14 +103,14 @@ services:
     environment:
       MIGRATE_SITES: ${MIGRATE_SITES:-true}
 
-  production-frontend:
+  frontend:
     <<: *image
     restart: unless-stopped
     stop_grace_period: 30s
     command: ["nginx-entrypoint.sh"]
     environment:
-      BACKEND: production-backend:8000
-      SOCKETIO: production-websocket:9000
+      BACKEND: backend:8000
+      SOCKETIO: websocket:9000
       FRAPPE_SITE_NAME_HEADER: ${SITE_NAME:-portal.catuc.org}
       UPSTREAM_REAL_IP_ADDRESS: ${UPSTREAM_REAL_IP_ADDRESS:-127.0.0.1/32}
       UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
@@ -118,11 +124,11 @@ services:
       - frappe
       - edge
     depends_on:
-      production-backend:
+      backend:
         condition: service_healthy
-      production-migrator:
+      migrator:
         condition: service_completed_successfully
-      production-websocket:
+      websocket:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent --header 'Host: ${PUBLIC_HOSTNAME:-portal.catuc.org}' http://127.0.0.1:8080/api/method/ping >/dev/null"]
@@ -133,14 +139,14 @@ services:
     labels:
       traefik.enable: ${TRAEFIK_ENABLE:-false}
       traefik.docker.network: ${EDGE_NETWORK:?Set EDGE_NETWORK to the live Traefik network}
-      traefik.http.routers.academia-production.rule: Host(`${PUBLIC_HOSTNAME:-portal.catuc.org}`)
-      traefik.http.routers.academia-production.entrypoints: ${TRAEFIK_ENTRYPOINT:-websecure}
-      traefik.http.routers.academia-production.tls: "true"
-      traefik.http.routers.academia-production.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-main-resolver}
-      traefik.http.routers.academia-production.service: academia-production
-      traefik.http.services.academia-production.loadbalancer.server.port: "8080"
+      traefik.http.routers.academia-frappe.rule: Host(`${PUBLIC_HOSTNAME:-portal.catuc.org}`)
+      traefik.http.routers.academia-frappe.entrypoints: ${TRAEFIK_ENTRYPOINT:-websecure}
+      traefik.http.routers.academia-frappe.tls: "true"
+      traefik.http.routers.academia-frappe.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-main-resolver}
+      traefik.http.routers.academia-frappe.service: academia-frappe
+      traefik.http.services.academia-frappe.loadbalancer.server.port: "8080"
 
-  production-websocket:
+  websocket:
     <<: [*image, *configured]
     restart: unless-stopped
     stop_grace_period: 30s
@@ -151,29 +157,29 @@ services:
     networks:
       - frappe
 
-  production-queue-short:
+  queue-short:
     <<: *runtime
     command: ["bench", "worker", "--queue", "short"]
 
-  production-queue-default:
+  queue-default:
     <<: *runtime
     command: ["bench", "worker", "--queue", "default"]
 
-  production-queue-long:
+  queue-long:
     <<: *runtime
     command: ["bench", "worker", "--queue", "long"]
 
-  production-scheduler:
+  scheduler:
     <<: *runtime
     command: ["bench", "schedule"]
 
-  production-backup:
+  backup:
     <<: *runtime
     profiles: ["operations"]
     restart: "no"
     command: ["bench", "--site", "${SITE_NAME:-portal.catuc.org}", "backup", "--with-files", "--compress"]
 
-  production-restore:
+  restore:
     <<: [*image, *configured]
     profiles: ["operations"]
     restart: "no"
@@ -190,7 +196,7 @@ services:
         admin_password=$$(openssl rand -base64 36);
         encryption_key=$$(python -c 'import json; print(json.load(open("/snapshot/site-config.json"))["encryption_key"])');
         bench new-site "$$SITE_NAME"
-        --db-host production-mariadb
+        --db-host mariadb
         --db-port 3306
         --db-root-username root
         --db-root-password "$$db_root_password"
@@ -222,7 +228,7 @@ services:
     networks:
       - frappe
 
-  production-mariadb:
+  mariadb:
     image: mariadb:11.8
     restart: unless-stopped
     stop_grace_period: 60s
@@ -253,7 +259,7 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  production-redis-cache:
+  redis-cache:
     image: redis:8.6-alpine
     restart: unless-stopped
     command: ["redis-server", "--save", "", "--appendonly", "no"]
@@ -267,7 +273,7 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  production-redis-queue:
+  redis-queue:
     image: redis:8.6-alpine
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
@@ -297,6 +303,10 @@ networks:
 
 volumes:
   mariadb-data:
+    name: academia-frappe_mariadb-data
   redis-queue-data:
+    name: academia-frappe_redis-queue-data
   sites:
+    name: academia-frappe_sites
   logs:
+    name: academia-frappe_logs

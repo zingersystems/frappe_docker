@@ -13,8 +13,8 @@ ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
 	 (cd '$authority_snapshot' && sha256sum --check SHA256SUMS)
 	 chmod 0755 '$authority_snapshot'
 	 chmod 0644 '$authority_snapshot'/*
-	 if docker volume inspect academia-frappe-production_sites >/dev/null 2>&1; then
-		 test -z \"\$(docker run --rm -v academia-frappe-production_sites:/sites alpine:3.23 find /sites -mindepth 2 -name site_config.json -print -quit)\"
+	 if docker volume inspect academia-frappe_sites >/dev/null 2>&1; then
+		 test -z \"\$(docker run --rm -v academia-frappe_sites:/sites alpine:3.23 find /sites -mindepth 2 -name site_config.json -print -quit)\"
 	 fi
 	 install -d -m 0700 '$remote_root/secrets'
 	 umask 077
@@ -31,8 +31,8 @@ ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
 	"set -eu
 	 cd '$remote_root'
 	 docker compose --env-file .env -f compose.yaml config --quiet
-	 docker compose --env-file .env -f compose.yaml pull production-mariadb production-redis-cache production-redis-queue production-configurator production-restore
-	 docker compose --env-file .env -f compose.yaml up -d production-mariadb production-redis-cache production-redis-queue
-	 docker compose --profile operations --env-file .env -f compose.yaml run --rm production-restore"
+	 docker compose --env-file .env -f compose.yaml pull mariadb redis-cache redis-queue configurator restore
+	 docker compose --env-file .env -f compose.yaml up -d mariadb redis-cache redis-queue
+	 docker compose --profile operations --env-file .env -f compose.yaml run --rm restore"
 
 printf 'Candidate restored in maintenance mode on %s\n' "$target_host"
