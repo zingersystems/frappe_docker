@@ -2,6 +2,8 @@
 
 ## Progress
 
+- 2026-08-06: Attempted read-only production inventory. `portal.catuc.org` resolves to `84.247.170.106`; its presented ED25519 (`SHA256:suRUyMcULGWvwpf272gGlqsf1hL1TWrH0tQxjessf+Q`), RSA (`SHA256:EzEP3TLQs0XzvGtn7cdZyuYwm4UXxupeQwuLV4NJ0Ik`), and ECDSA (`SHA256:sYly0nEdMeTvBkKtUMr3bMmpoKj3gKJUkL9xKciaByM`) keys match the Dev Container's existing hashed known-host records for that IP. Authentication as the previously documented operator `colong` is blocked because this container has no `SSH_AUTH_SOCK`, agent identities, or private keys. No remote command or change ran.
+
 - 2026-08-06: Started the fresh `portal.catuc.org` production implementation under `deployment/catuc-production`. Added the official-pattern backend/frontend/websocket/three-worker/scheduler/configurator topology with MariaDB 11.8, Redis 8.6, one external private `frappe` network, edge access only for `frontend`, and `portal.catuc.org:host-gateway` for PDF-capable roles. Added `frappe16-2026-08-06` environment inputs, a blocked exact-ref release manifest, and a strict preflight. YAML/JSON/Bash and topology assertions pass; preflight correctly refuses missing Docker CLI, placeholder live edge network, dirty Education files, and blocked release status.
 
 - 2026-08-06: Added `development.localhost:127.0.0.1` to the self-contained Dev Container's Frappe service to fix the confirmed `wkhtmltopdf HostNotFoundError` that prevents emails with `Attach Document Print`. Current `curl http://development.localhost:8000` returns 200 while `getent hosts development.localhost` has no entry in the already-running container, so host-side Dev Container recreation plus DNS, exact-PDF, and attached-email verification remain required.
@@ -51,6 +53,7 @@
 
 ## Handoff
 
+- Resume live inventory only after forwarding the operator's SSH agent into this Dev Container; do not copy a private key into the workspace or container. Use strict host-key checking against the accepted `84.247.170.106` record. The requested alias `contabo.catuc.bda.portal` has no DNS or `/home/frappe/.ssh/config` mapping inside the container.
 - Production release remains blocked until the live Traefik/network inventory is captured, Docker Buildx/Compose is available to the Dev Container build workflow, Education's Frappe-v16 compatibility is resolved, and the user-modified Education files are clean or deliberately committed. Do not change or discard those Education files as part of deployment work.
 - The VPS feature commits now exist locally but remain ahead of GitLab by five Core commits and seven CATUC commits; push them only through the normal reviewed Git workflow. The parent local and VPS deployment repositories retain separate, divergent environment-specific commits and were intentionally not merged during the app/data sync.
 - Host integration and recovery acceptance are complete. GitLab branch protections and merge-request approval rules still require an authenticated GitLab API/UI session with subgroup-owner or Maintainer permissions; SSH repository access alone cannot configure them.
