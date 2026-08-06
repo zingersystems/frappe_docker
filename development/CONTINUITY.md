@@ -2,6 +2,8 @@
 
 ## Progress
 
+- 2026-08-06: Approved a temporary exception to mount the WSL operator's `${HOME}/.ssh` read-only at `/home/frappe/.ssh` in the Dev Container because automatic agent forwarding was unavailable. The mount supplies the existing `contabo.catuc.bda.portal` alias, `zinger` user, identity, and trusted host keys without copying them into Git or an image; it must be removed after production deployment access is complete.
+
 - 2026-08-06: Attempted read-only production inventory. `portal.catuc.org` resolves to `84.247.170.106`; its presented ED25519 (`SHA256:suRUyMcULGWvwpf272gGlqsf1hL1TWrH0tQxjessf+Q`), RSA (`SHA256:EzEP3TLQs0XzvGtn7cdZyuYwm4UXxupeQwuLV4NJ0Ik`), and ECDSA (`SHA256:sYly0nEdMeTvBkKtUMr3bMmpoKj3gKJUkL9xKciaByM`) keys match the Dev Container's existing hashed known-host records for that IP. Authentication as the previously documented operator `colong` is blocked because this container has no `SSH_AUTH_SOCK`, agent identities, or private keys. No remote command or change ran.
 
 - 2026-08-06: Started the fresh `portal.catuc.org` production implementation under `deployment/catuc-production`. Added the official-pattern backend/frontend/websocket/three-worker/scheduler/configurator topology with MariaDB 11.8, Redis 8.6, one external private `frappe` network, edge access only for `frontend`, and `portal.catuc.org:host-gateway` for PDF-capable roles. Added `frappe16-2026-08-06` environment inputs, a blocked exact-ref release manifest, and a strict preflight. YAML/JSON/Bash and topology assertions pass; preflight correctly refuses missing Docker CLI, placeholder live edge network, dirty Education files, and blocked release status.
@@ -33,6 +35,7 @@
 
 ## Decisions
 
+- The current production deployment temporarily permits a read-only WSL `~/.ssh` bind into the Dev Container. This exposes private keys to container processes, so it is limited to deployment access and must be removed at closeout.
 - Production image tags use `frappe16-[Y-m-d]`; the 2026-08-06 candidate is `frappe16-2026-08-06`, with digest pinning required for deployment.
 - Production services share the external private network `frappe`; only `frontend` joins the discovered live Traefik edge network. PDF-capable roles route canonical `https://portal.catuc.org` requests through Docker `host-gateway` and host-published Traefik.
 - `Attach Document Print` requires each site's canonical `host_name` to resolve from PDF-rendering processes. Local `development.localhost` resolves to the same container at `127.0.0.1`; production must preserve `https://portal.catuc.org` and provide a TLS-valid route from backend and workers to the frontend.
@@ -53,7 +56,7 @@
 
 ## Handoff
 
-- Resume live inventory only after forwarding the operator's SSH agent into this Dev Container; do not copy a private key into the workspace or container. Use strict host-key checking against the accepted `84.247.170.106` record. The requested alias `contabo.catuc.bda.portal` has no DNS or `/home/frappe/.ssh/config` mapping inside the container.
+- Rebuild and reopen the Dev Container to activate the temporary read-only SSH mount, then resume live inventory with `contabo.catuc.bda.portal`, which maps to `zinger@84.247.170.106`. Remove the mount and this exception after deployment access is complete.
 - Production release remains blocked until the live Traefik/network inventory is captured, Docker Buildx/Compose is available to the Dev Container build workflow, Education's Frappe-v16 compatibility is resolved, and the user-modified Education files are clean or deliberately committed. Do not change or discard those Education files as part of deployment work.
 - The VPS feature commits now exist locally but remain ahead of GitLab by five Core commits and seven CATUC commits; push them only through the normal reviewed Git workflow. The parent local and VPS deployment repositories retain separate, divergent environment-specific commits and were intentionally not merged during the app/data sync.
 - Host integration and recovery acceptance are complete. GitLab branch protections and merge-request approval rules still require an authenticated GitLab API/UI session with subgroup-owner or Maintainer permissions; SSH repository access alone cannot configure them.

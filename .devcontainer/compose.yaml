@@ -38,6 +38,7 @@ services:
     working_dir: /workspace/development
     volumes:
       - ../:/workspace:cached
+      - ${HOME}/.ssh:/home/frappe/.ssh:ro
     extra_hosts:
       - "development.localhost:127.0.0.1"
     ports:
