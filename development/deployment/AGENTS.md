@@ -7,6 +7,7 @@
 ## Ownership
 
 - `catuc/` owns the single `academia-frappe-catuc` development stack and its operational commands.
+- `catuc-production/` owns the immutable production stack, release inputs, deployment checks, data migration, cutover, and rollback for `portal.catuc.org`.
 - `sandbox-edge/` owns the shared VPS Traefik template, client authentication middleware, Fail2ban configuration, and reviewed host-integration installer.
 
 ## Local Contracts
@@ -31,3 +32,5 @@
 - `bash -n development/deployment/catuc/scripts/*`
 
 ## Child DOX Index
+
+- `catuc-production/AGENTS.md` covers the live CATUC production image, Compose topology, release gates, canonical-host PDF routing, backup/restore, cutover, and rollback.

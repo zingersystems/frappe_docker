@@ -2,6 +2,8 @@
 
 ## Progress
 
+- 2026-08-06: Started the fresh `portal.catuc.org` production implementation under `deployment/catuc-production`. Added the official-pattern backend/frontend/websocket/three-worker/scheduler/configurator topology with MariaDB 11.8, Redis 8.6, one external private `frappe` network, edge access only for `frontend`, and `portal.catuc.org:host-gateway` for PDF-capable roles. Added `frappe16-2026-08-06` environment inputs, a blocked exact-ref release manifest, and a strict preflight. YAML/JSON/Bash and topology assertions pass; preflight correctly refuses missing Docker CLI, placeholder live edge network, dirty Education files, and blocked release status.
+
 - 2026-08-06: Added `development.localhost:127.0.0.1` to the self-contained Dev Container's Frappe service to fix the confirmed `wkhtmltopdf HostNotFoundError` that prevents emails with `Attach Document Print`. Current `curl http://development.localhost:8000` returns 200 while `getent hosts development.localhost` has no entry in the already-running container, so host-side Dev Container recreation plus DNS, exact-PDF, and attached-email verification remain required.
 
 - 2026-08-06: Started the security/performance review across `academia_core`, `academia_catuc`, and `frappe_pay_connect`. The first implementation tranche resolved unsafe default HTTP methods on Core application mutations and Pay Connect payment mutations, and added pre-decode size bounds plus strict Base64 validation for wizard attachments and payment proofs. Focused Core access/upload, wizard, payment-renderer, and Pay Connect lifecycle tests pass; details and remaining audit work are tracked in `artifacts/security-performance-review-2026-08-06.md`.
@@ -29,6 +31,8 @@
 
 ## Decisions
 
+- Production image tags use `frappe16-[Y-m-d]`; the 2026-08-06 candidate is `frappe16-2026-08-06`, with digest pinning required for deployment.
+- Production services share the external private network `frappe`; only `frontend` joins the discovered live Traefik edge network. PDF-capable roles route canonical `https://portal.catuc.org` requests through Docker `host-gateway` and host-published Traefik.
 - `Attach Document Print` requires each site's canonical `host_name` to resolve from PDF-rendering processes. Local `development.localhost` resolves to the same container at `127.0.0.1`; production must preserve `https://portal.catuc.org` and provide a TLS-valid route from backend and workers to the frontend.
 - Local editor development uses the self-contained `frappe_docker_devcontainer` Compose project and `development.localhost`; the `academia-frappe-catuc` stack is reserved for the VPS deployment contract and its external ingress/secrets.
 - Local `development.localhost` is the primary development site. The Docker-hosted VPS is reserved for staging and multi-project hosting; move code through committed Git history and refresh data only through explicit checksummed backup/restore operations.
@@ -47,6 +51,7 @@
 
 ## Handoff
 
+- Production release remains blocked until the live Traefik/network inventory is captured, Docker Buildx/Compose is available to the Dev Container build workflow, Education's Frappe-v16 compatibility is resolved, and the user-modified Education files are clean or deliberately committed. Do not change or discard those Education files as part of deployment work.
 - The VPS feature commits now exist locally but remain ahead of GitLab by five Core commits and seven CATUC commits; push them only through the normal reviewed Git workflow. The parent local and VPS deployment repositories retain separate, divergent environment-specific commits and were intentionally not merged during the app/data sync.
 - Host integration and recovery acceptance are complete. GitLab branch protections and merge-request approval rules still require an authenticated GitLab API/UI session with subgroup-owner or Maintainer permissions; SSH repository access alone cannot configure them.
 - If `143.105.152.120` is still banned after the team-credential rotation, run `sudo fail2ban-client set traefik-catuc-auth unbanip 143.105.152.120` once before testing the new credential.

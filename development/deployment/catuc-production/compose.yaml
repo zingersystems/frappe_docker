@@ -1,0 +1,232 @@
+name: academia-frappe-production
+
+x-image: &image
+  image: ${FRAPPE_IMAGE:?Set FRAPPE_IMAGE to the registry image digest}
+  pull_policy: always
+  init: true
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "5"
+  security_opt:
+    - no-new-privileges:true
+
+x-configured: &configured
+  depends_on:
+    configurator:
+      condition: service_completed_successfully
+
+x-runtime: &runtime
+  <<: [*image, *configured]
+  restart: unless-stopped
+  stop_grace_period: 60s
+  extra_hosts:
+    - "${PUBLIC_HOSTNAME:-portal.catuc.org}:host-gateway"
+  volumes:
+    - sites:/home/frappe/frappe-bench/sites
+    - logs:/home/frappe/frappe-bench/logs
+  networks:
+    - frappe
+
+services:
+  configurator:
+    <<: *image
+    restart: "no"
+    entrypoint: ["bash", "-c"]
+    command:
+      - >
+        ls -1 apps > sites/apps.txt;
+        bench set-config -g db_host "$$DB_HOST";
+        bench set-config -gp db_port "$$DB_PORT";
+        bench set-config -g redis_cache "redis://$$REDIS_CACHE";
+        bench set-config -g redis_queue "redis://$$REDIS_QUEUE";
+        bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
+        bench set-config -gp socketio_port "$$SOCKETIO_PORT";
+        bench set-config -g chromium_path /usr/bin/chromium-headless-shell
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: "3306"
+      REDIS_CACHE: redis-cache:6379
+      REDIS_QUEUE: redis-queue:6379
+      SOCKETIO_PORT: "9000"
+    extra_hosts:
+      - "${PUBLIC_HOSTNAME:-portal.catuc.org}:host-gateway"
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - logs:/home/frappe/frappe-bench/logs
+    networks:
+      - frappe
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+      redis-queue:
+        condition: service_healthy
+
+  backend:
+    <<: *runtime
+    environment:
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-4}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --header 'Host: ${SITE_NAME:-portal.catuc.org}' http://127.0.0.1:8000/api/method/ping >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  frontend:
+    <<: *image
+    restart: unless-stopped
+    stop_grace_period: 30s
+    command: ["nginx-entrypoint.sh"]
+    environment:
+      BACKEND: backend:8000
+      SOCKETIO: websocket:9000
+      FRAPPE_SITE_NAME_HEADER: ${SITE_NAME:-portal.catuc.org}
+      UPSTREAM_REAL_IP_ADDRESS: ${UPSTREAM_REAL_IP_ADDRESS:-127.0.0.1/32}
+      UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
+      UPSTREAM_REAL_IP_RECURSIVE: "on"
+      PROXY_READ_TIMEOUT: ${PROXY_READ_TIMEOUT:-120}
+      CLIENT_MAX_BODY_SIZE: ${CLIENT_MAX_BODY_SIZE:-50m}
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - logs:/home/frappe/frappe-bench/logs
+    networks:
+      - frappe
+      - edge
+    depends_on:
+      backend:
+        condition: service_healthy
+      websocket:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --header 'Host: ${PUBLIC_HOSTNAME:-portal.catuc.org}' http://127.0.0.1/api/method/ping >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: ${EDGE_NETWORK:?Set EDGE_NETWORK to the live Traefik network}
+      traefik.http.routers.academia-production.rule: Host(`${PUBLIC_HOSTNAME:-portal.catuc.org}`)
+      traefik.http.routers.academia-production.entrypoints: ${TRAEFIK_ENTRYPOINT:-websecure}
+      traefik.http.routers.academia-production.tls: "true"
+      traefik.http.routers.academia-production.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      traefik.http.routers.academia-production.service: academia-production
+      traefik.http.services.academia-production.loadbalancer.server.port: "8080"
+
+  websocket:
+    <<: [*image, *configured]
+    restart: unless-stopped
+    stop_grace_period: 30s
+    command: ["node", "/home/frappe/frappe-bench/apps/frappe/socketio.js"]
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - logs:/home/frappe/frappe-bench/logs
+    networks:
+      - frappe
+
+  queue-short:
+    <<: *runtime
+    command: ["bench", "worker", "--queue", "short"]
+
+  queue-default:
+    <<: *runtime
+    command: ["bench", "worker", "--queue", "default"]
+
+  queue-long:
+    <<: *runtime
+    command: ["bench", "worker", "--queue", "long"]
+
+  scheduler:
+    <<: *runtime
+    command: ["bench", "schedule"]
+
+  backup:
+    <<: *runtime
+    profiles: ["operations"]
+    restart: "no"
+    command: ["bench", "--site", "${SITE_NAME:-portal.catuc.org}", "backup", "--with-files", "--compress"]
+
+  mariadb:
+    image: mariadb:11.8
+    restart: unless-stopped
+    stop_grace_period: 60s
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+    environment:
+      MARIADB_AUTO_UPGRADE: "1"
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mariadb_root_password
+    secrets:
+      - mariadb_root_password
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    networks:
+      - frappe
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    security_opt:
+      - no-new-privileges:true
+
+  redis-cache:
+    image: redis:8.6-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks:
+      - frappe
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  redis-queue:
+    image: redis:8.6-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-queue-data:/data
+    networks:
+      - frappe
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+secrets:
+  mariadb_root_password:
+    file: ${SECRETS_DIR:-/srv/apps/academia/frappe/secrets}/mariadb_root_password
+
+networks:
+  frappe:
+    external: true
+    name: frappe
+  edge:
+    external: true
+    name: ${EDGE_NETWORK:?Set EDGE_NETWORK to the live Traefik network}
+
+volumes:
+  mariadb-data:
+  redis-queue-data:
+  sites:
+  logs:

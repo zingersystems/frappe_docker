@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+deployment_dir=$(cd "$script_dir/.." && pwd)
+workspace_root=$(cd "$deployment_dir/../../.." && pwd)
+bench_root=${BENCH_ROOT:-$workspace_root/development/frappe-bench}
+env_file=${ENV_FILE:-$deployment_dir/.env.example}
+manifest=${RELEASE_MANIFEST:-$deployment_dir/manifests/release-2026-08-06.json}
+
+failures=0
+
+fail() {
+	printf 'ERROR: %s\n' "$*" >&2
+	failures=$((failures + 1))
+}
+
+require_command() {
+	command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
+}
+
+require_command git
+require_command curl
+require_command getent
+require_command docker
+
+if [[ ! -f "$env_file" ]]; then
+	fail "environment file not found: $env_file"
+fi
+
+if [[ ! -f "$manifest" ]]; then
+	fail "release manifest not found: $manifest"
+fi
+
+if [[ -f "$env_file" ]]; then
+	set -a
+	# shellcheck disable=SC1090
+	source "$env_file"
+	set +a
+
+	if [[ ! ${IMAGE_TAG:-} =~ ^frappe16-[0-9]{4}-[0-9]{2}-[0-9]{2}(-[0-9a-f]{7,40})?$ ]]; then
+		fail "IMAGE_TAG must match frappe16-[Y-m-d] with an optional commit suffix"
+	fi
+
+	if [[ ${PUBLIC_HOSTNAME:-} != portal.catuc.org ]]; then
+		fail "PUBLIC_HOSTNAME must be portal.catuc.org"
+	fi
+
+	if [[ ${EDGE_NETWORK:-} == REPLACE_WITH_LIVE_EDGE_NETWORK || -z ${EDGE_NETWORK:-} ]]; then
+		fail "EDGE_NETWORK must be set from read-only live Traefik inventory"
+	fi
+
+	if [[ ${FRAPPE_IMAGE:-} != registry.gitlab.com/zinger-teams/academia/frappe:* && ${FRAPPE_IMAGE:-} != registry.gitlab.com/zinger-teams/academia/frappe@sha256:* ]]; then
+		fail "FRAPPE_IMAGE must use the approved GitLab registry repository"
+	fi
+fi
+
+apps=(frappe erpnext education payments academia_core frappe_pay_connect academia_catuc)
+for app in "${apps[@]}"; do
+	repository="$bench_root/apps/$app"
+	if [[ ! -d "$repository/.git" ]]; then
+		fail "app is not a Git checkout: $repository"
+		continue
+	fi
+
+	if [[ -n $(git -C "$repository" status --porcelain) ]]; then
+		fail "app checkout is dirty: $app"
+	fi
+done
+
+if [[ -f "$manifest" ]]; then
+	manifest_status=$(
+		"$bench_root/env/bin/python" -c 'import json, sys; print(json.load(open(sys.argv[1]))["release_status"])' "$manifest"
+	)
+	if [[ $manifest_status != ready ]]; then
+		fail "release manifest status is '$manifest_status', expected 'ready'"
+	fi
+fi
+
+if command -v docker >/dev/null 2>&1 && [[ -f "$env_file" ]]; then
+	if ! docker buildx version >/dev/null 2>&1; then
+		fail "docker buildx is unavailable"
+	fi
+
+	if ! docker compose version >/dev/null 2>&1; then
+		fail "docker compose v2 is unavailable"
+	fi
+
+	if ! docker compose --env-file "$env_file" -f "$deployment_dir/compose.yaml" config >/dev/null; then
+		fail "production Compose configuration is invalid"
+	fi
+fi
+
+if ((failures > 0)); then
+	printf 'Preflight failed with %d error(s).\n' "$failures" >&2
+	exit 1
+fi
+
+printf 'Production preflight passed.\n'

@@ -1,5 +1,13 @@
 # Academia VPS Development
 
+## Production boundary
+
+Live `portal.catuc.org` deployment artifacts are owned by `catuc-production/` and install under `/srv/apps/academia/frappe`. The image repository is `registry.gitlab.com/zinger-teams/academia/frappe`; dated tags use `frappe16-[Y-m-d]`, and running releases must pin the resolved digest.
+
+The production stack uses one external private network named `frappe` for every service. Only its `frontend` service also joins the shared Traefik edge network discovered from the live host. Backend and worker containers map `portal.catuc.org` to Docker `host-gateway`, preserving canonical HTTPS and certificate validation while PDF generators fetch print assets through Traefik without joining the edge network.
+
+Run `catuc-production/scripts/preflight` before building or deploying. It refuses dirty app trees, blocked release manifests, missing Docker Buildx/Compose, placeholder edge inventory, and invalid image naming.
+
 ## Layout
 
 - Shared ingress: `/srv/deploy/edge`, Compose project and external network `sandbox-edge`.
