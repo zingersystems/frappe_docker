@@ -57,6 +57,28 @@ Evidence:
 - Core upload security tests passed 2/2.
 - Pay Connect lifecycle tests passed 11/11.
 
+### Medium: Public access recovery had no abuse throttle
+
+Status: Resolved in the second implementation tranche.
+
+The guest access-code recovery endpoint could repeatedly rotate a matching applicant's credential, revoke active
+sessions, and queue email. Its neutral response prevented identifier disclosure but did not constrain targeted
+mailbox or credential churn, identifier spraying, or repeated database work.
+
+Remediation:
+
+- Limited each normalized Application number to three recovery requests per hour across source IPs.
+- Limited each source IP to ten recovery requests per hour to constrain identifier spraying.
+- Normalized casing and surrounding whitespace before selecting the per-application bucket.
+- Applied rejection before applicant lookup, credential rotation, email dispatch, or commit.
+
+Evidence:
+
+- A focused regression submits lowercase, whitespace-padded, and canonical forms of one Application number and
+	confirms the fourth request raises `RateLimitExceededError`.
+- The same regression confirms only the first three requests reach applicant lookup.
+- Core access tests passed 19/19.
+
 ## Verification
 
 Completed:
@@ -71,7 +93,7 @@ Completed:
 
 ## Pending Review Work
 
-- Rate limiting and recovery abuse controls
+- Rate limiting beyond public access recovery
 - Callback signature/configuration and browser-return trust boundaries
 - Payment and proof concurrency/idempotency races
 - File signature/MIME validation and orphan cleanup on failed persistence
