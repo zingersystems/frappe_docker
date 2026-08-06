@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "release_status": "candidate",
+  "release_status": "ready",
   "image": {
     "repository": "registry.gitlab.com/zinger-teams/academia/frappe",
     "tag": "frappe16-2026-08-06-c54459e",
-    "digest": ""
+    "digest": "sha256:3026717dfb8b65da224343aee138a96f3616568104d85ed55d1fe3b09cc9df67"
   },
   "apps": [
     {
@@ -50,8 +50,5 @@
       "commit": "c54459efe751639e2f2758f9789967461992ccfc"
     }
   ],
-  "blockers": [
-    "Build and pin the candidate image digest.",
-    "Run the production migration and verify the cleanup invariants and post-login Education route."
-  ]
+  "blockers": []
 }
