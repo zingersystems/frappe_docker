@@ -2,6 +2,8 @@
 
 ## Progress
 
+- 2026-08-06: Added `development.localhost:127.0.0.1` to the self-contained Dev Container's Frappe service to fix the confirmed `wkhtmltopdf HostNotFoundError` that prevents emails with `Attach Document Print`. Current `curl http://development.localhost:8000` returns 200 while `getent hosts development.localhost` has no entry in the already-running container, so host-side Dev Container recreation plus DNS, exact-PDF, and attached-email verification remain required.
+
 - 2026-08-06: Started the security/performance review across `academia_core`, `academia_catuc`, and `frappe_pay_connect`. The first implementation tranche resolved unsafe default HTTP methods on Core application mutations and Pay Connect payment mutations, and added pre-decode size bounds plus strict Base64 validation for wizard attachments and payment proofs. Focused Core access/upload, wizard, payment-renderer, and Pay Connect lifecycle tests pass; details and remaining audit work are tracked in `artifacts/security-performance-review-2026-08-06.md`.
 
 - 2026-08-05: Reverted local applicant `CATUC-BDA-HND-2026-00019` (`EDU-APP-2026-00409`) on `development.localhost` from Submitted back to Draft at wizard progress `6.0` (Review & Confirm). Cleared submitted timestamp, payment route, and document verification token; cancelled unused pending Payment Intent `6na7r01v9e`; and added an `Application Reverted to Review` status-log entry. Core wizard helpers confirm the record is on Review & Confirm and `has_reached_application_review` is true.
@@ -27,6 +29,7 @@
 
 ## Decisions
 
+- `Attach Document Print` requires each site's canonical `host_name` to resolve from PDF-rendering processes. Local `development.localhost` resolves to the same container at `127.0.0.1`; production must preserve `https://portal.catuc.org` and provide a TLS-valid route from backend and workers to the frontend.
 - Local editor development uses the self-contained `frappe_docker_devcontainer` Compose project and `development.localhost`; the `academia-frappe-catuc` stack is reserved for the VPS deployment contract and its external ingress/secrets.
 - Local `development.localhost` is the primary development site. The Docker-hosted VPS is reserved for staging and multi-project hosting; move code through committed Git history and refresh data only through explicit checksummed backup/restore operations.
 - VPS-wide HTTP/HTTPS ingress belongs to the separate shared-infrastructure project `sandbox-edge`; only application web containers join its external Docker network.

@@ -38,6 +38,8 @@ services:
     working_dir: /workspace/development
     volumes:
       - ../:/workspace:cached
+    extra_hosts:
+      - "development.localhost:127.0.0.1"
     ports:
       - "8000-8005:8000-8005"
       - "9000-9005:9000-9005"

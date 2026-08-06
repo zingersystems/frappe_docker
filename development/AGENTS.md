@@ -100,6 +100,7 @@ When the user requests a durable behavior change, record it here or in the relev
 - Make every durable project change reproducible on production through app installation or migration. Use standard DocTypes, hooks, patches, fixtures, or idempotent provisioning; never leave manual Desk or database work as a required deployment step.
 - Use the local self-contained Dev Container as the primary development environment; reserve the Docker-hosted VPS for staging and multi-project service hosting rather than interactive development.
 - Keep the local VS Code Dev Container on its self-contained `.devcontainer/compose.yaml` stack and `development.localhost` site; VPS-only secrets, paths, and ingress stay in `development/deployment/catuc/compose.yaml`.
+- Keep `development.localhost` mapped to `127.0.0.1` inside the single local Frappe container so PDF renderers can resolve the canonical site URL and fetch print assets.
 - Use `sandbox-edge` at `/srv/deploy/edge` as the VPS-wide ingress for schools and other development projects.
 - Use `main`, `develop`, and `staging` as the stable, integration, and customer-test branches for custom apps.
 
