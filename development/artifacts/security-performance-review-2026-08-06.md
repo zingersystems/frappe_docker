@@ -63,13 +63,11 @@ Completed:
 
 - `academia_core.admissions.test_access`: 18 passed.
 - `academia_core.admissions.test_upload_security`: 2 passed.
+- `academia_core.admissions.test_wizard`: 53 passed.
+- `academia_core.admissions.test_payment_renderer`: 4 passed.
 - `frappe_pay_connect.payments.test_lifecycle`: 11 passed.
 - Python compilation for `academia_core` and `frappe_pay_connect`: passed.
 - Editor diagnostics for all touched Python files: clean.
-
-Known unrelated baseline issue:
-
-- `academia_core.admissions.test_wizard` runs 53 tests with one failure in `test_review_screen_summarizes_prior_steps_and_formats_payment`. The failing assertion concerns already-dirty application-wizard JavaScript work that predated this review tranche. The upload security regression passes and was moved into a dedicated test module so this review does not stage or commit unrelated user changes.
 
 ## Pending Review Work
 
