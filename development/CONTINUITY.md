@@ -2,6 +2,10 @@
 
 ## Progress
 
+- 2026-08-06: Realigned the production image flow with the official Frappe Docker production guidance: stable refs in secret-mounted `apps.json`, explicit `CACHE_BUST`, official layered `bench init`, and a dedicated migrator service. The only image adaptation installs `openssh-client` in the disposable builder and mounts forwarded SSH plus known hosts for private GitLab tags. Built `registry.gitlab.com/zinger-teams/academia/frappe:frappe16-2026-08-06` successfully on the VPS as local image `sha256:8de817cef36df15db4f2324188e3bd9621b651e4a54dcd1ec90608814b55ee2c`; it contains Frappe 16.26.3, ERPNext 16.26.2, Education 16.0.1, Payments, Core, CATUC, and Pay Connect. The runtime has no `/home/frappe/.ssh` and no SSH client. Registry push alone failed with `denied: requested access to the resource is denied`; failed staging cleaned automatically and no deployment started.
+
+- 2026-08-06: Completed read-only live ingress inventory over verified SSH. The host is `catuc-bda-portal` (`zinger@84.247.170.106`) with Docker 29.6.1, Compose 5.2.0, and 146 GB free. `/srv/apps/academia/frappe` is empty and owned by `zinger:zinger`; the external networks are `frappe` and `edge`; Traefik uses `websecure` and ACME resolver `main-resolver`; the existing portal frontend routes `portal.catuc.org` to port 8080. Updated production defaults accordingly. The legacy stack remains live from `/srv/apps/academia` and already uses generic service aliases on `frappe`, so the candidate needs unique aliases for parallel acceptance.
+
 - 2026-08-06: Approved a temporary exception to mount the WSL operator's `${HOME}/.ssh` read-only at `/home/frappe/.ssh` in the Dev Container because automatic agent forwarding was unavailable. The mount supplies the existing `contabo.catuc.bda.portal` alias, `zinger` user, identity, and trusted host keys without copying them into Git or an image; it must be removed after production deployment access is complete.
 
 - 2026-08-06: Attempted read-only production inventory. `portal.catuc.org` resolves to `84.247.170.106`; its presented ED25519 (`SHA256:suRUyMcULGWvwpf272gGlqsf1hL1TWrH0tQxjessf+Q`), RSA (`SHA256:EzEP3TLQs0XzvGtn7cdZyuYwm4UXxupeQwuLV4NJ0Ik`), and ECDSA (`SHA256:sYly0nEdMeTvBkKtUMr3bMmpoKj3gKJUkL9xKciaByM`) keys match the Dev Container's existing hashed known-host records for that IP. Authentication as the previously documented operator `colong` is blocked because this container has no `SSH_AUTH_SOCK`, agent identities, or private keys. No remote command or change ran.
@@ -35,6 +39,7 @@
 
 ## Decisions
 
+- Production image construction follows the official Frappe Docker layered build and migrator patterns. Stable app tags/branches are verified against the release manifest before build; BuildKit receives `apps.json`, SSH agent access, and known hosts ephemerally.
 - The current production deployment temporarily permits a read-only WSL `~/.ssh` bind into the Dev Container. This exposes private keys to container processes, so it is limited to deployment access and must be removed at closeout.
 - Production image tags use `frappe16-[Y-m-d]`; the 2026-08-06 candidate is `frappe16-2026-08-06`, with digest pinning required for deployment.
 - Production services share the external private network `frappe`; only `frontend` joins the discovered live Traefik edge network. PDF-capable roles route canonical `https://portal.catuc.org` requests through Docker `host-gateway` and host-published Traefik.
@@ -56,6 +61,7 @@
 
 ## Handoff
 
+- Before retrying the image push, authenticate Docker on `contabo.catuc.bda.portal` to `registry.gitlab.com` with an account/deploy token that has `write_registry` access to `zinger-teams/academia/frappe`. Enter the token directly in the operator terminal; never store it in Git or route it through chat. The validated local image remains on the VPS and can be pushed without rebuilding after login, but the release must then record and deploy the registry digest.
 - Rebuild and reopen the Dev Container to activate the temporary read-only SSH mount, then resume live inventory with `contabo.catuc.bda.portal`, which maps to `zinger@84.247.170.106`. Remove the mount and this exception after deployment access is complete.
 - Production release remains blocked until the live Traefik/network inventory is captured, Docker Buildx/Compose is available to the Dev Container build workflow, Education's Frappe-v16 compatibility is resolved, and the user-modified Education files are clean or deliberately committed. Do not change or discard those Education files as part of deployment work.
 - The VPS feature commits now exist locally but remain ahead of GitLab by five Core commits and seven CATUC commits; push them only through the normal reviewed Git workflow. The parent local and VPS deployment repositories retain separate, divergent environment-specific commits and were intentionally not merged during the app/data sync.

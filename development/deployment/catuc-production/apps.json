@@ -1,0 +1,26 @@
+[
+  {
+    "url": "https://github.com/frappe/erpnext.git",
+    "branch": "v16.26.2"
+  },
+  {
+    "url": "https://github.com/frappe/education.git",
+    "branch": "version-16"
+  },
+  {
+    "url": "https://github.com/frappe/payments.git",
+    "branch": "version-16"
+  },
+  {
+    "url": "git@gitlab.com:Zinger-Teams/catuc-bamenda/frappe/academia_core.git",
+    "branch": "frappe16-2026-08-06"
+  },
+  {
+    "url": "git@gitlab.com:Zinger-Teams/catuc-bamenda/frappe/frappe_pay_connect.git",
+    "branch": "frappe16-2026-08-06"
+  },
+  {
+    "url": "git@gitlab.com:Zinger-Teams/catuc-bamenda/frappe/academia_catuc.git",
+    "branch": "frappe16-2026-08-06"
+  }
+]

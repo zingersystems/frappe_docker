@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+deployment_dir=$(cd "$script_dir/.." && pwd)
+workspace_root=$(cd "$deployment_dir/../../.." && pwd)
+manifest=${RELEASE_MANIFEST:-$deployment_dir/manifests/release-2026-08-06.json}
+env_file=${ENV_FILE:-$deployment_dir/.env.example}
+target_host=${TARGET_HOST:-contabo.catuc.bda.portal}
+remote_root=${REMOTE_ROOT:-/srv/apps/academia/frappe}
+python=${PYTHON:-$workspace_root/development/frappe-bench/env/bin/python}
+
+for command in git ssh tar ssh-add; do
+	command -v "$command" >/dev/null 2>&1 || {
+		printf 'Required command not found: %s\n' "$command" >&2
+		exit 1
+	}
+done
+
+if ! ssh-add -l >/dev/null 2>&1; then
+	printf 'An SSH agent containing the GitLab deploy identity is required.\n' >&2
+	exit 1
+fi
+
+set -a
+# shellcheck disable=SC1090
+source "$env_file"
+set +a
+
+mapfile -t release < <(
+	"$python" - "$manifest" <<'PY'
+import json
+import sys
+
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+if manifest["release_status"] not in {"candidate", "ready"}:
+    raise SystemExit("Release manifest must have candidate or ready status")
+print(manifest["image"]["repository"] + ":" + manifest["image"]["tag"])
+for app in manifest["apps"]:
+    print("\t".join((app["name"], app["repository"], app["branch"], app["commit"])))
+PY
+)
+
+image=${release[0]}
+if [[ $image != "$FRAPPE_IMAGE" ]]; then
+	printf 'Manifest image %s does not match FRAPPE_IMAGE %s\n' "$image" "$FRAPPE_IMAGE" >&2
+	exit 1
+fi
+
+verification_dir=$(mktemp -d)
+release_dir="$remote_root/releases/$IMAGE_TAG"
+staging_dir="$remote_root/.build-$IMAGE_TAG"
+cleanup_remote=0
+
+cleanup() {
+	rm -rf "$verification_dir"
+	if ((cleanup_remote)); then
+		ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+			"rm -rf -- '$staging_dir'" || true
+	fi
+}
+trap cleanup EXIT
+
+for app_record in "${release[@]:1}"; do
+	IFS=$'\t' read -r app repository branch expected_commit <<<"$app_record"
+	app_dir="$verification_dir/$app"
+	git init --quiet "$app_dir"
+	git -C "$app_dir" fetch --quiet --depth 1 "$repository" "$branch"
+	actual_commit=$(git -C "$app_dir" rev-parse 'FETCH_HEAD^{}')
+	if [[ $actual_commit != "$expected_commit" ]]; then
+		printf '%s ref %s moved: expected %s, found %s\n' "$app" "$branch" "$expected_commit" "$actual_commit" >&2
+		exit 1
+	fi
+done
+
+build_context="$staging_dir/context"
+
+ssh -A -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+	"set -eu; test ! -e '$release_dir'; test ! -e '$staging_dir'; install -d -m 0750 '$build_context' '$staging_dir/release' '$remote_root/releases'"
+cleanup_remote=1
+
+tar -C "$workspace_root" -cf - images resources | \
+	ssh -A -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+		"tar -xf - -C '$build_context'"
+
+tar -C "$deployment_dir" -cf - apps.json image/Containerfile "manifests/$(basename "$manifest")" | \
+	ssh -A -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+		"tar -xf - -C '$staging_dir/release'"
+
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+	"umask 077; cat > '$staging_dir/release/known_hosts'" < "$HOME/.ssh/known_hosts"
+
+ssh -A -o BatchMode=yes -o StrictHostKeyChecking=yes "$target_host" \
+	"set -eu
+	 test -S \"\$SSH_AUTH_SOCK\"
+	 docker buildx build \
+	   --platform linux/amd64 \
+	   --build-arg FRAPPE_PATH=https://github.com/frappe/frappe \
+	   --build-arg FRAPPE_IMAGE_TAG=version-16 \
+	   --build-arg FRAPPE_BRANCH=v16.26.3 \
+	   --build-arg CACHE_BUST='$IMAGE_TAG' \
+	   --secret id=apps_json,src='$staging_dir/release/apps.json' \
+	   --secret id=known_hosts,src='$staging_dir/release/known_hosts' \
+	   --ssh default \
+	   --file '$staging_dir/release/image/Containerfile' \
+	   --tag '$image' \
+	   --metadata-file '$staging_dir/build-metadata.json' \
+	   --push \
+	   '$build_context'
+	 docker buildx imagetools inspect '$image'
+	 docker buildx imagetools inspect '$image' --raw | sha256sum | awk '{print \$1}' > '$staging_dir/image-digest.sha256'
+	 mv '$staging_dir' '$release_dir'"
+cleanup_remote=0
+
+printf 'Built and pushed %s; remote release record: %s\n' "$image" "$release_dir"

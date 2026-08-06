@@ -8,6 +8,8 @@ The production stack uses one external private network named `frappe` for every 
 
 Run `catuc-production/scripts/preflight` before building or deploying. It refuses dirty app trees, blocked release manifests, missing Docker Buildx/Compose, placeholder edge inventory, and invalid image naming.
 
+The image build follows the official Frappe Docker layered pattern. `apps.json` is a BuildKit secret, `CACHE_BUST` uses the release tag, and private GitLab apps use ephemeral SSH/known-host mounts in a disposable builder stage. Authenticate the VPS Docker client to the GitLab registry with a `write_registry` token entered directly by the operator; never place registry credentials in repository files or build arguments.
+
 ## Layout
 
 - Shared ingress: `/srv/deploy/edge`, Compose project and external network `sandbox-edge`.

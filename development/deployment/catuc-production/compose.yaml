@@ -14,7 +14,7 @@ x-image: &image
 
 x-configured: &configured
   depends_on:
-    configurator:
+    production-configurator:
       condition: service_completed_successfully
 
 x-runtime: &runtime
@@ -30,7 +30,7 @@ x-runtime: &runtime
     - frappe
 
 services:
-  configurator:
+  production-configurator:
     <<: *image
     restart: "no"
     entrypoint: ["bash", "-c"]
@@ -45,10 +45,10 @@ services:
         bench set-config -gp socketio_port "$$SOCKETIO_PORT";
         bench set-config -g chromium_path /usr/bin/chromium-headless-shell
     environment:
-      DB_HOST: mariadb
+      DB_HOST: production-mariadb
       DB_PORT: "3306"
-      REDIS_CACHE: redis-cache:6379
-      REDIS_QUEUE: redis-queue:6379
+      REDIS_CACHE: production-redis-cache:6379
+      REDIS_QUEUE: production-redis-queue:6379
       SOCKETIO_PORT: "9000"
     extra_hosts:
       - "${PUBLIC_HOSTNAME:-portal.catuc.org}:host-gateway"
@@ -58,14 +58,14 @@ services:
     networks:
       - frappe
     depends_on:
-      mariadb:
+      production-mariadb:
         condition: service_healthy
-      redis-cache:
+      production-redis-cache:
         condition: service_healthy
-      redis-queue:
+      production-redis-queue:
         condition: service_healthy
 
-  backend:
+  production-backend:
     <<: *runtime
     environment:
       GUNICORN_THREADS: ${GUNICORN_THREADS:-4}
@@ -78,14 +78,33 @@ services:
       retries: 10
       start_period: 30s
 
-  frontend:
+  production-migrator:
+    <<: *runtime
+    restart: on-failure:5
+    entrypoint: ["bash", "-c"]
+    command:
+      - >
+        if [ "$$MIGRATE_SITES" != "true" ]; then
+          echo "[migrator] Migration disabled";
+          exit 0;
+        fi;
+        if [ -z "$$(find sites -mindepth 2 -maxdepth 2 -name site_config.json 2>/dev/null)" ]; then
+          echo "[migrator] No sites found, skipping migration";
+          exit 0;
+        fi;
+        echo "[migrator] Migrating all sites";
+        bench --site all migrate;
+    environment:
+      MIGRATE_SITES: ${MIGRATE_SITES:-true}
+
+  production-frontend:
     <<: *image
     restart: unless-stopped
     stop_grace_period: 30s
     command: ["nginx-entrypoint.sh"]
     environment:
-      BACKEND: backend:8000
-      SOCKETIO: websocket:9000
+      BACKEND: production-backend:8000
+      SOCKETIO: production-websocket:9000
       FRAPPE_SITE_NAME_HEADER: ${SITE_NAME:-portal.catuc.org}
       UPSTREAM_REAL_IP_ADDRESS: ${UPSTREAM_REAL_IP_ADDRESS:-127.0.0.1/32}
       UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
@@ -99,9 +118,11 @@ services:
       - frappe
       - edge
     depends_on:
-      backend:
+      production-backend:
         condition: service_healthy
-      websocket:
+      production-migrator:
+        condition: service_completed_successfully
+      production-websocket:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent --header 'Host: ${PUBLIC_HOSTNAME:-portal.catuc.org}' http://127.0.0.1/api/method/ping >/dev/null"]
@@ -110,16 +131,16 @@ services:
       retries: 10
       start_period: 15s
     labels:
-      traefik.enable: "true"
+      traefik.enable: ${TRAEFIK_ENABLE:-false}
       traefik.docker.network: ${EDGE_NETWORK:?Set EDGE_NETWORK to the live Traefik network}
       traefik.http.routers.academia-production.rule: Host(`${PUBLIC_HOSTNAME:-portal.catuc.org}`)
       traefik.http.routers.academia-production.entrypoints: ${TRAEFIK_ENTRYPOINT:-websecure}
       traefik.http.routers.academia-production.tls: "true"
-      traefik.http.routers.academia-production.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      traefik.http.routers.academia-production.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-main-resolver}
       traefik.http.routers.academia-production.service: academia-production
       traefik.http.services.academia-production.loadbalancer.server.port: "8080"
 
-  websocket:
+  production-websocket:
     <<: [*image, *configured]
     restart: unless-stopped
     stop_grace_period: 30s
@@ -130,29 +151,29 @@ services:
     networks:
       - frappe
 
-  queue-short:
+  production-queue-short:
     <<: *runtime
     command: ["bench", "worker", "--queue", "short"]
 
-  queue-default:
+  production-queue-default:
     <<: *runtime
     command: ["bench", "worker", "--queue", "default"]
 
-  queue-long:
+  production-queue-long:
     <<: *runtime
     command: ["bench", "worker", "--queue", "long"]
 
-  scheduler:
+  production-scheduler:
     <<: *runtime
     command: ["bench", "schedule"]
 
-  backup:
+  production-backup:
     <<: *runtime
     profiles: ["operations"]
     restart: "no"
     command: ["bench", "--site", "${SITE_NAME:-portal.catuc.org}", "backup", "--with-files", "--compress"]
 
-  mariadb:
+  production-mariadb:
     image: mariadb:11.8
     restart: unless-stopped
     stop_grace_period: 60s
@@ -183,7 +204,7 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  redis-cache:
+  production-redis-cache:
     image: redis:8.6-alpine
     restart: unless-stopped
     command: ["redis-server", "--save", "", "--appendonly", "no"]
@@ -197,7 +218,7 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  redis-queue:
+  production-redis-queue:
     image: redis:8.6-alpine
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]

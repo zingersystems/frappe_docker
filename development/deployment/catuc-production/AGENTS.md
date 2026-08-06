@@ -9,6 +9,8 @@
 - `compose.yaml` owns the production Frappe, MariaDB, Redis, private-network, and Traefik attachment topology.
 - `.env.example` documents non-secret deployment inputs; live values and credentials stay under `/srv/apps/academia/frappe/secrets`.
 - `scripts/` owns strict operational commands for release validation, deployment, data movement, health checks, cutover, and rollback.
+- `image/Containerfile` follows the official layered image and differs only by adding the SSH client to the disposable builder and mounting SSH and known-host data during private app clones.
+- `apps.json` contains reviewed stable refs; the build script verifies each ref still resolves to the release manifest commit before invoking the official `bench init` flow.
 - `manifests/` owns reviewed source and image release records, never credentials or live snapshots.
 
 ## Local Contracts
@@ -17,6 +19,8 @@
 - Every service joins the private external network named `frappe`; only `frontend` joins the discovered shared edge network.
 - MariaDB, Redis, backend, websocket, workers, and scheduler publish no host ports.
 - Images use `registry.gitlab.com/zinger-teams/academia/frappe:frappe16-[Y-m-d]` tags and production deploys pin the resolved image digest.
+- Private app builds use forwarded SSH agent and known-host mounts through BuildKit; keys and credentials never enter the build context, image layers, or VPS filesystem.
+- Site migrations run through the dedicated `production-migrator` service and must complete before the frontend starts.
 - Backend and worker roles resolve `portal.catuc.org` through Docker `host-gateway` so PDF generators fetch canonical HTTPS assets through Traefik without joining the edge network.
 - Production email stays muted until the exact formerly failing document renders as a valid PDF and one approved print-attached message reaches `Sent`.
 - Old-live data is rollback evidence. The checksummed `development.localhost` snapshot is authoritative and is restored without merging old-live records.
