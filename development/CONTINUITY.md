@@ -2,6 +2,8 @@
 
 ## Progress
 
+- 2026-08-06: Started the security/performance review across `academia_core`, `academia_catuc`, and `frappe_pay_connect`. The first implementation tranche resolved unsafe default HTTP methods on Core application mutations and Pay Connect payment mutations, and added pre-decode size bounds plus strict Base64 validation for wizard attachments and payment proofs. Focused Core access/upload and Pay Connect lifecycle tests passed; details and remaining audit work are tracked in `artifacts/security-performance-review-2026-08-06.md`.
+
 - 2026-08-05: Reverted local applicant `CATUC-BDA-HND-2026-00019` (`EDU-APP-2026-00409`) on `development.localhost` from Submitted back to Draft at wizard progress `6.0` (Review & Confirm). Cleared submitted timestamp, payment route, and document verification token; cancelled unused pending Payment Intent `6na7r01v9e`; and added an `Application Reverted to Review` status-log entry. Core wizard helpers confirm the record is on Review & Confirm and `has_reached_application_review` is true.
 
 - 2026-08-03: Renamed the local Dev Container display name to `Academia Frappe` and added the official OpenAI Codex extension (`openai.chatgpt`) to the container-provisioned VS Code extensions. Preserved the `frappe_docker_devcontainer` Compose project name and existing volume identity.
