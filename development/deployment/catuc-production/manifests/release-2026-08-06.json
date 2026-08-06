@@ -4,7 +4,7 @@
   "image": {
     "repository": "registry.gitlab.com/zinger-teams/academia/frappe",
     "tag": "frappe16-2026-08-06",
-    "digest": null
+    "digest": "sha256:3ac88f19f80751876be0795d06feb1b773dff453f16cd39197b9077ac8fc9b79"
   },
   "apps": [
     {
@@ -52,7 +52,6 @@
   ],
   "blockers": [
     "The official Education version-16 and ERPNext v16.26.2 refs differ from the authoritative local checkout; candidate migration and admissions smoke tests must pass before release status becomes ready.",
-    "The candidate image digest must be recorded after the registry push.",
     "Authoritative database and files restore, canonical PDF rendering, and print-attached email acceptance remain pending."
   ]
 }
