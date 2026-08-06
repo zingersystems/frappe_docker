@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "release_status": "candidate",
+  "image": {
+    "repository": "registry.gitlab.com/zinger-teams/academia/frappe",
+    "tag": "frappe16-2026-08-06-c54459e",
+    "digest": ""
+  },
+  "apps": [
+    {
+      "name": "frappe",
+      "repository": "https://github.com/frappe/frappe",
+      "branch": "v16.26.3",
+      "commit": "4113465d23888d70936bb332fd9110ab4330cbf1"
+    },
+    {
+      "name": "erpnext",
+      "repository": "https://github.com/frappe/erpnext.git",
+      "branch": "v16.26.2",
+      "commit": "d1d3b241ae7bc21d18cf830a4bacd568e21a2a19"
+    },
+    {
+      "name": "education",
+      "repository": "https://github.com/frappe/education.git",
+      "branch": "version-16",
+      "commit": "1c29e646bf943c2a5f696cb81cb48c8a072cbebc"
+    },
+    {
+      "name": "payments",
+      "repository": "https://github.com/frappe/payments.git",
+      "branch": "version-16",
+      "commit": "cca07d9f9392e2ea0e521c5975151db9e4b6c321"
+    },
+    {
+      "name": "academia_core",
+      "repository": "git@gitlab.com:Zinger-Teams/catuc-bamenda/frappe/academia_core.git",
+      "branch": "frappe16-2026-08-06",
+      "commit": "9250edb6c04f7ef78978d6c1ee0020f10751e9aa"
+    },
+    {
+      "name": "frappe_pay_connect",
+      "repository": "git@gitlab.com:Zinger-Teams/catuc-bamenda/frappe/frappe_pay_connect.git",
+      "branch": "frappe16-2026-08-06",
+      "commit": "f40c3c4f67885ac8fb28641eede6b2b84be01a24"
+    },
+    {
+      "name": "academia_catuc",
+      "repository": "git@gitlab.com:Zinger-Teams/catuc-bamenda/frappe/academia_catuc.git",
+      "branch": "frappe16-2026-08-06-c54459e",
+      "commit": "c54459efe751639e2f2758f9789967461992ccfc"
+    }
+  ],
+  "blockers": [
+    "Build and pin the candidate image digest.",
+    "Run the production migration and verify the cleanup invariants and post-login Education route."
+  ]
+}
